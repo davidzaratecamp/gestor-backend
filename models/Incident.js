@@ -459,16 +459,10 @@ class Incident {
                 LEFT JOIN (
                     SELECT 
                         incident_id,
-                        timestamp
+                        MAX(timestamp) as timestamp
                     FROM incident_history 
                     WHERE action = 'Reasignación de técnico'
-                    AND incident_id IN (
-                        SELECT DISTINCT incident_id 
-                        FROM incident_history 
-                        WHERE action = 'Reasignación de técnico'
-                    )
                     GROUP BY incident_id
-                    HAVING timestamp = MAX(timestamp)
                 ) latest_reassign ON i.id = latest_reassign.incident_id
                 WHERE 1=1
             `;
