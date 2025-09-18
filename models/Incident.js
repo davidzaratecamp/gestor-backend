@@ -458,11 +458,16 @@ class Incident {
                 LEFT JOIN users assigned ON i.assigned_to_id = assigned.id
                 LEFT JOIN (
                     SELECT 
-                        incident_id,
-                        MAX(timestamp) as timestamp
-                    FROM incident_history 
-                    WHERE action = 'Reasignación de técnico'
-                    GROUP BY incident_id
+                        ih1.incident_id,
+                        ih1.timestamp
+                    FROM incident_history ih1
+                    WHERE ih1.action = 'Reasignación de técnico'
+                    AND ih1.timestamp = (
+                        SELECT MAX(ih2.timestamp)
+                        FROM incident_history ih2
+                        WHERE ih2.incident_id = ih1.incident_id
+                        AND ih2.action = 'Reasignación de técnico'
+                    )
                 ) latest_reassign ON i.id = latest_reassign.incident_id
                 WHERE 1=1
             `;
