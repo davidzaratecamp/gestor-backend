@@ -444,11 +444,32 @@ class Incident {
                     w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
-                    assigned.id AS assigned_to_id
+                    assigned.id AS assigned_to_id,
+                    latest_reassign.created_at as last_reassign_date,
+                    CASE 
+                        WHEN latest_reassign.created_at IS NOT NULL 
+                        AND latest_reassign.created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)
+                        THEN 1 
+                        ELSE 0 
+                    END as is_recently_reassigned
                 FROM incidents i
                 JOIN workstations w ON i.workstation_id = w.id
                 JOIN users reporter ON i.reported_by_id = reporter.id
                 LEFT JOIN users assigned ON i.assigned_to_id = assigned.id
+                LEFT JOIN (
+                    SELECT 
+                        incident_id,
+                        created_at
+                    FROM incident_history 
+                    WHERE action = 'Reasignación de técnico'
+                    AND incident_id IN (
+                        SELECT DISTINCT incident_id 
+                        FROM incident_history 
+                        WHERE action = 'Reasignación de técnico'
+                    )
+                    GROUP BY incident_id
+                    HAVING created_at = MAX(created_at)
+                ) latest_reassign ON i.id = latest_reassign.incident_id
                 WHERE 1=1
             `;
             
