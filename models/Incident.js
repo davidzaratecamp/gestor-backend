@@ -445,10 +445,10 @@ class Incident {
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
                     assigned.id AS assigned_to_id,
-                    latest_reassign.created_at as last_reassign_date,
+                    latest_reassign.timestamp as last_reassign_date,
                     CASE 
-                        WHEN latest_reassign.created_at IS NOT NULL 
-                        AND latest_reassign.created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)
+                        WHEN latest_reassign.timestamp IS NOT NULL 
+                        AND latest_reassign.timestamp > DATE_SUB(NOW(), INTERVAL 48 HOUR)
                         THEN 1 
                         ELSE 0 
                     END as is_recently_reassigned
@@ -459,7 +459,7 @@ class Incident {
                 LEFT JOIN (
                     SELECT 
                         incident_id,
-                        created_at
+                        timestamp
                     FROM incident_history 
                     WHERE action = 'Reasignación de técnico'
                     AND incident_id IN (
@@ -468,7 +468,7 @@ class Incident {
                         WHERE action = 'Reasignación de técnico'
                     )
                     GROUP BY incident_id
-                    HAVING created_at = MAX(created_at)
+                    HAVING timestamp = MAX(timestamp)
                 ) latest_reassign ON i.id = latest_reassign.incident_id
                 WHERE 1=1
             `;
