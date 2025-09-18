@@ -8,9 +8,14 @@ dotenv.config();
 
 const app = express();
 
+// Configurar CORS dinámicamente según el ambiente
+const corsOrigins = process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, 'http://31.97.138.23:5173', 'http://31.97.138.23:5174']
+    : [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'];
+
 // Middlewares
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: corsOrigins,
     credentials: true
 })); // Permite peticiones desde el frontend
 app.use(express.json()); // Para parsear el body de las peticiones como JSON

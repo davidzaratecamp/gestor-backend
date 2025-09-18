@@ -1,8 +1,14 @@
 const db = require('../config/db');
 
 class Incident {
-    static async getAll(status = null, assignedTo = null) {
+    static async getAll(status = null, assignedTo = null, userRole = null, userSede = null, userDepartamento = null, userId = null, filters = {}) {
         try {
+            // Si se pasan datos del usuario, usar la lógica de visibilidad SIEMPRE
+            if (userRole && userId) {
+                return await this.getVisibleForUser(userRole, userSede, status, assignedTo, filters, userDepartamento, userId);
+            }
+            
+            // Lógica sin restricciones SOLO para casos especiales (migraciones, scripts, etc.)
             let query = `
                 SELECT 
                     i.id,
@@ -15,6 +21,8 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
                     assigned.id AS assigned_to_id
@@ -53,6 +61,10 @@ class Incident {
                     i.*,
                     w.station_code,
                     w.location_details,
+                    w.sede,
+                    w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name
                 FROM incidents i
@@ -123,6 +135,65 @@ class Incident {
                 INSERT INTO incident_history (incident_id, user_id, action, details) 
                 VALUES (?, ?, 'Asignación de técnico', ?)
             `, [incidentId, assignedBy, `Asignado a: ${techName}`]);
+
+            await connection.commit();
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async reassignTechnician(incidentId, newTechnicianId, reassignedBy, reason = '') {
+        const connection = await db.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+
+            // Obtener información actual de la incidencia
+            const [currentIncident] = await connection.query(`
+                SELECT i.*, u.full_name as current_tech_name 
+                FROM incidents i 
+                LEFT JOIN users u ON i.assigned_to_id = u.id 
+                WHERE i.id = ? AND i.status != 'aprobado'
+            `, [incidentId]);
+
+            if (currentIncident.length === 0) {
+                throw new Error('No se pudo reasignar. La incidencia no existe o ya fue aprobada.');
+            }
+
+            const incident = currentIncident[0];
+
+            // Actualizar la asignación (funciona en cualquier estado excepto 'aprobado')
+            // Si está en 'pendiente', cambiarlo a 'en_proceso'
+            let newStatus = incident.status;
+            if (incident.status === 'pendiente') {
+                newStatus = 'en_proceso';
+            }
+
+            const [result] = await connection.query(`
+                UPDATE incidents 
+                SET assigned_to_id = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = ? AND status != 'aprobado'
+            `, [newTechnicianId, newStatus, incidentId]);
+
+            if (result.affectedRows === 0) {
+                throw new Error('No se pudo reasignar técnico.');
+            }
+
+            // Obtener información del nuevo técnico
+            const [newTechUser] = await connection.query('SELECT full_name FROM users WHERE id = ?', [newTechnicianId]);
+            const newTechName = newTechUser[0]?.full_name || 'Técnico';
+
+            // Registrar en el historial
+            const details = `Reasignado de "${incident.current_tech_name || 'Técnico anterior'}" a "${newTechName}"${reason ? `. Motivo: ${reason}` : ''}`;
+            
+            await connection.query(`
+                INSERT INTO incident_history (incident_id, user_id, action, details) 
+                VALUES (?, ?, 'Reasignación de técnico', ?)
+            `, [incidentId, reassignedBy, details]);
 
             await connection.commit();
             return true;
@@ -266,6 +337,8 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS technician_name
                 FROM incidents i
@@ -281,7 +354,7 @@ class Incident {
         }
     }
 
-    static async getApprovedIncidentsForUser(userRole, userSede, userDepartamento = null) {
+    static async getApprovedIncidentsForUser(userRole, userSede, userDepartamento = null, userId = null) {
         try {
             let query = `
                 SELECT 
@@ -294,6 +367,8 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS technician_name
                 FROM incidents i
@@ -317,15 +392,6 @@ class Incident {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
                 }
-            } else if (userRole === 'coordinador') {
-                // Coordinadores solo ven incidencias de su propia sede
-                query += ' AND w.sede = ?';
-                params.push(userSede);
-            } else if (userRole === 'jefe_operaciones') {
-                // Jefes de operaciones ven solo su departamento en su sede
-                query += ' AND w.sede = ? AND w.departamento = ?';
-                params.push(userSede);
-                params.push(userDepartamento);
             } else if (userRole === 'supervisor') {
                 // Supervisores ven incidencias de su sede (mantener lógica original)
                 if (userSede === 'bogota') {
@@ -336,6 +402,18 @@ class Incident {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
                 }
+            } else if (userRole === 'jefe_operaciones') {
+                // Jefes de operaciones ven incidencias de su sede y departamento
+                query += ' AND w.sede = ? AND w.departamento = ?';
+                params.push(userSede);
+                params.push(userDepartamento);
+            }
+            
+            // GARANTIZADO: Solo admins, técnicos, supervisores y jefes de operaciones pueden ver más incidencias
+            // TODOS los demás (coordinadores, administrativos, etc.) solo ven SUS PROPIAS incidencias
+            if (userRole !== 'admin' && userRole !== 'technician' && userRole !== 'supervisor' && userRole !== 'jefe_operaciones') {
+                query += ' AND i.reported_by_id = ?';
+                params.push(userId);
             }
             // Solo admin ve todo
             
@@ -348,7 +426,7 @@ class Incident {
         }
     }
 
-    static async getVisibleForUser(userRole, userSede, status = null, assignedTo = null, filters = {}, userDepartamento = null) {
+    static async getVisibleForUser(userRole, userSede, status = null, assignedTo = null, filters = {}, userDepartamento = null, userId = null) {
         try {
             let query = `
                 SELECT 
@@ -362,6 +440,8 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
                     assigned.id AS assigned_to_id
@@ -386,15 +466,6 @@ class Incident {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
                 }
-            } else if (userRole === 'coordinador') {
-                // Coordinadores solo ven incidencias de su propia sede
-                query += ' AND w.sede = ?';
-                params.push(userSede);
-            } else if (userRole === 'jefe_operaciones') {
-                // Jefes de operaciones ven solo su departamento en su sede
-                query += ' AND w.sede = ? AND w.departamento = ?';
-                params.push(userSede);
-                params.push(userDepartamento);
             } else if (userRole === 'supervisor') {
                 // Supervisores ven incidencias de su sede (mantener lógica original)
                 if (userSede === 'bogota') {
@@ -405,11 +476,30 @@ class Incident {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
                 }
+            } else if (userRole === 'jefe_operaciones') {
+                // Jefes de operaciones ven todas las incidencias de su departamento en su sede
+                query += ' AND w.sede = ? AND w.departamento = ?';
+                params.push(userSede);
+                params.push(userDepartamento);
+            }
+            
+            // GARANTIZADO: Solo roles administrativos específicos ven sus propias incidencias
+            // Coordinadores y administrativos solo ven SUS PROPIAS incidencias
+            // Jefes de operaciones ven TODAS las incidencias de su departamento/sede (pueden supervisar a coordinadores)
+            if (userRole === 'coordinador' || userRole === 'administrativo') {
+                query += ' AND i.reported_by_id = ?';
+                params.push(userId);
             }
             // Solo admin ve todo
             
-            // Filtros adicionales
-            if (status) {
+            // Lógica especial para incidencias en supervisión:
+            // Admin y jefe_operaciones ven todas las incidencias en supervisión de su ámbito
+            // Otros roles (coordinadores, administrativos, etc.) solo ven las que reportaron
+            if (status === 'en_supervision' && userRole !== 'admin' && userRole !== 'jefe_operaciones') {
+                query += ' AND i.status = ? AND i.reported_by_id = ?';
+                params.push(status);
+                params.push(userId);
+            } else if (status) {
                 query += ' AND i.status = ?';
                 params.push(status);
             }
@@ -429,6 +519,30 @@ class Incident {
                 // Solo admin puede filtrar por sede
                 query += ' AND w.sede = ?';
                 params.push(filters.sede);
+            }
+
+            // Filtro por rol del creador (para admin en vista de supervisión)
+            if (filters.creador && userRole === 'admin') {
+                query += ' AND reporter.role = ?';
+                params.push(filters.creador);
+            }
+
+            // Filtro por tiempo en supervisión (para admin en vista de supervisión)
+            if (filters.tiempo_supervision && userRole === 'admin') {
+                const now = new Date();
+                if (filters.tiempo_supervision === 'hoy') {
+                    // Incidencias resueltas hoy
+                    query += ' AND DATE(i.updated_at) = CURDATE()';
+                } else if (filters.tiempo_supervision === '3dias') {
+                    // Más de 3 días en supervisión
+                    query += ' AND TIMESTAMPDIFF(HOUR, i.updated_at, NOW()) > 72';
+                } else if (filters.tiempo_supervision === 'semana') {
+                    // Más de 7 días en supervisión
+                    query += ' AND TIMESTAMPDIFF(HOUR, i.updated_at, NOW()) > 168';
+                } else if (filters.tiempo_supervision === 'mes') {
+                    // Más de 30 días en supervisión
+                    query += ' AND TIMESTAMPDIFF(HOUR, i.updated_at, NOW()) > 720';
+                }
             }
             
             query += ' ORDER BY i.created_at DESC';

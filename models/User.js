@@ -181,6 +181,43 @@ class User {
         }
     }
 
+    static async deleteWithDependencies(id) {
+        try {
+            // Iniciar transacción
+            await db.query('START TRANSACTION');
+            
+            // Eliminar dependencias en orden correcto para evitar errores de foreign key
+            // 1. Eliminar calificaciones de técnicos
+            await db.query('DELETE FROM technician_ratings WHERE technician_id = ? OR rated_by_id = ?', [id, id]);
+            
+            // 2. Eliminar archivos adjuntos subidos por el usuario
+            await db.query('DELETE FROM incident_attachments WHERE uploaded_by = ?', [id]);
+            
+            // 3. Eliminar historial de incidencias donde el usuario aparece
+            await db.query('DELETE FROM incident_history WHERE user_id = ?', [id]);
+            
+            // 4. Eliminar todas las incidencias donde el usuario está como reported_by_id o assigned_to_id
+            // Esto eliminará también automáticamente archivos adjuntos relacionados y historial restante
+            await db.query('DELETE FROM incidents WHERE reported_by_id = ? OR assigned_to_id = ?', [id, id]);
+            
+            // 5. Para incidencias donde el usuario solo aprobó, simplemente limpiar la referencia
+            // (reported_by_id y assigned_to_id son obligatorios, pero approved_by_id puede ser NULL)
+            await db.query('UPDATE incidents SET approved_by_id = NULL WHERE approved_by_id = ?', [id]);
+            
+            // 6. Finalmente eliminar el usuario
+            const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
+            
+            // Confirmar transacción
+            await db.query('COMMIT');
+            
+            return result.affectedRows > 0;
+        } catch (error) {
+            // Revertir transacción en caso de error
+            await db.query('ROLLBACK');
+            throw error;
+        }
+    }
+
     static async validatePassword(plainPassword, hashedPassword) {
         return await bcrypt.compare(plainPassword, hashedPassword);
     }

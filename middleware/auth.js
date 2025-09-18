@@ -40,11 +40,12 @@ const isTechnician = verifyRole(['technician', 'admin']);
 const isAdminOrCoordinador = verifyRole(['admin', 'coordinador']);
 const isAdminOrTechnician = verifyRole(['admin', 'technician']);
 const isAdminOrJefeOperaciones = verifyRole(['admin', 'jefe_operaciones']);
+const canCreateIncidentsWithFiles = verifyRole(['admin', 'coordinador', 'administrativo', 'jefe_operaciones']);
 
 // Roles de supervisión (pueden crear y supervisar incidencias)
-const canCreateIncidents = verifyRole(['admin', 'supervisor', 'coordinador']);
-const canSuperviseIncidents = verifyRole(['admin', 'supervisor', 'coordinador']);
-const canViewIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'jefe_operaciones']);
+const canCreateIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'jefe_operaciones']);
+const canSuperviseIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'administrativo', 'jefe_operaciones']);
+const canViewIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'jefe_operaciones', 'administrativo']);
 
 // Mantener compatibilidad temporal con 'supervisor' 
 const isSupervisor = verifyRole(['supervisor', 'coordinador', 'admin']);
@@ -64,5 +65,6 @@ module.exports = {
     isAdminOrJefeOperaciones,
     canCreateIncidents,
     canSuperviseIncidents,
-    canViewIncidents
+    canViewIncidents,
+    canCreateIncidentsWithFiles
 };

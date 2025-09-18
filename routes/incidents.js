@@ -18,9 +18,14 @@ const {
     getMyRatings,
     getTechniciansRanking,
     assignTechnician,
+    reassignTechnician,
     markAsResolved,
     approveIncident,
-    rejectIncident
+    rejectIncident,
+    sendApprovalAlerts,
+    getMyAlerts,
+    markAlertAsRead,
+    dismissAlert
 } = require('../controllers/incidentController');
 const { 
     verifyToken,
@@ -35,7 +40,8 @@ const {
     isAdminOrTechnician,
     canCreateIncidents,
     canSuperviseIncidents,
-    canViewIncidents
+    canViewIncidents,
+    canCreateIncidentsWithFiles
 } = require('../middleware/auth');
 
 // Todas las rutas requieren autenticación
@@ -43,7 +49,7 @@ router.use(verifyToken);
 
 // Rutas específicas por rol (deben ir antes de las rutas con parámetros)
 router.get('/my-incidents', isTechnician, getMyIncidents);
-router.get('/pending', verifyRole(['admin', 'technician', 'jefe_operaciones']), getPendingIncidents);
+router.get('/pending', verifyRole(['admin', 'technician', 'jefe_operaciones', 'administrativo']), getPendingIncidents);
 router.get('/supervision', canViewIncidents, getIncidentsInSupervision);
 router.get('/approved', getApprovedIncidents);
 
@@ -51,6 +57,14 @@ router.get('/approved', getApprovedIncidents);
 router.get('/stats/by-sede', verifyRole(['admin']), getStatsBySede);
 router.get('/stats/technicians', verifyRole(['admin']), getTechniciansStatus);
 router.get('/stats/technicians-ranking', verifyRole(['admin']), getTechniciansRanking);
+
+// Enviar alertas (solo para admin)
+router.post('/send-alerts', isAdmin, sendApprovalAlerts);
+
+// Rutas de alertas
+router.get('/my-alerts', getMyAlerts);
+router.put('/alerts/:id/read', markAlertAsRead);
+router.put('/alerts/:id/dismiss', dismissAlert);
 
 // Rutas de calificaciones
 router.get('/my-ratings', isTechnician, getMyRatings);
@@ -67,16 +81,19 @@ router.get('/:id/attachments', getIncidentAttachments);
 // Crear nueva incidencia (supervisor, coordinador o admin)
 router.post('/', canCreateIncidents, createIncident);
 
-// Crear nueva incidencia con archivos adjuntos (solo coordinadores)
-router.post('/with-files', isCoordinador, upload.array('attachments', 5), createIncidentWithFiles);
+// Crear nueva incidencia con archivos adjuntos (coordinadores y administrativos)
+router.post('/with-files', canCreateIncidentsWithFiles, upload.array('attachments', 5), createIncidentWithFiles);
 
 // Asignar técnico (admin o técnico para auto-asignarse)
 router.put('/:id/assign', isAdminOrTechnician, assignTechnician);
 
+// Reasignar técnico (solo admin)
+router.put('/:id/reassign', isAdmin, reassignTechnician);
+
 // Marcar como resuelto (técnico)
 router.put('/:id/resolve', isTechnician, markAsResolved);
 
-// Aprobar/rechazar incidencia (supervisor, coordinador, jefe_operaciones o admin)
+// Aprobar/rechazar incidencia (supervisor, coordinador, administrativo o admin)
 router.put('/:id/approve', canSuperviseIncidents, approveIncident);
 router.put('/:id/reject', canSuperviseIncidents, rejectIncident);
 

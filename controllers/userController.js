@@ -26,6 +26,35 @@ exports.getTechnicians = async (req, res) => {
     }
 };
 
+// @desc    Obtener coordinadores
+// @route   GET /api/users/coordinators
+// @access  Private (Jefe de Operaciones)
+exports.getCoordinators = async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const userSede = req.user.sede;
+        const userDepartamento = req.user.departamento;
+        
+        let query = 'SELECT id, username, full_name, sede, departamento FROM users WHERE role IN ("coordinador", "supervisor")';
+        const params = [];
+        
+        // Si es jefe de operaciones, filtrar por su sede y departamento
+        if (userRole === 'jefe_operaciones') {
+            query += ' AND sede = ? AND departamento = ?';
+            params.push(userSede, userDepartamento);
+        }
+        
+        query += ' ORDER BY full_name';
+        
+        const db = require('../config/db');
+        const [rows] = await db.execute(query, params);
+        res.json(rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
 // @desc    Obtener un usuario por ID
 // @route   GET /api/users/:id
 // @access  Private (Admin)
@@ -61,10 +90,10 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ msg: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor o technician' 
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones o administrativo' 
         });
     }
 
@@ -106,8 +135,8 @@ exports.createUser = async (req, res) => {
             sede: sede || 'bogota'
         };
         
-        // Solo agregar departamento si no es técnico
-        if (role !== 'technician') {
+        // Solo agregar departamento si no es técnico ni administrativo
+        if (role !== 'technician' && role !== 'administrativo') {
             userData.departamento = departamento || 'claro';
         }
 
@@ -138,10 +167,10 @@ exports.updateUser = async (req, res) => {
         });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor o technician' 
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones o administrativo' 
         });
     }
 
@@ -190,8 +219,8 @@ exports.updateUser = async (req, res) => {
             sede: sede || userExists.sede || 'bogota'
         };
         
-        // Solo agregar departamento si no es técnico
-        if (role !== 'technician') {
+        // Solo agregar departamento si no es técnico ni administrativo
+        if (role !== 'technician' && role !== 'administrativo') {
             updateData.departamento = departamento || userExists.departamento || 'claro';
         }
 
@@ -234,20 +263,49 @@ exports.deleteUser = async (req, res) => {
             return res.status(400).json({ msg: 'No puedes eliminar tu propio usuario' });
         }
 
-        const deleted = await User.delete(req.params.id);
+        // Verificar incidencias asociadas para mostrar información al admin
+        const db = require('../config/db');
+        
+        // Contar todas las incidencias asociadas
+        const [reportedIncidents] = await db.query(`
+            SELECT COUNT(*) as count 
+            FROM incidents 
+            WHERE reported_by_id = ?
+        `, [req.params.id]);
+        
+        const [assignedIncidents] = await db.query(`
+            SELECT COUNT(*) as count 
+            FROM incidents 
+            WHERE assigned_to_id = ?
+        `, [req.params.id]);
+        
+        const totalReported = reportedIncidents[0].count;
+        const totalAssigned = assignedIncidents[0].count;
+        
+        // Eliminar usuario usando la nueva función de eliminación forzada
+        const deleted = await User.deleteWithDependencies(req.params.id);
         
         if (deleted) {
-            res.json({ msg: 'Usuario eliminado exitosamente' });
+            let message = 'Usuario eliminado exitosamente';
+            
+            // Agregar información sobre incidencias si las tenía
+            if (totalReported > 0 || totalAssigned > 0) {
+                const incidentInfo = [];
+                if (totalReported > 0) {
+                    incidentInfo.push(`${totalReported} incidencia(s) reportada(s)`);
+                }
+                if (totalAssigned > 0) {
+                    incidentInfo.push(`${totalAssigned} incidencia(s) asignada(s)`);
+                }
+                message += `. Se eliminaron también: ${incidentInfo.join(' y ')} y todos sus datos asociados (historial, archivos adjuntos, etc.).`;
+            }
+            
+            res.json({ msg: message });
         } else {
             res.status(400).json({ msg: 'No se pudo eliminar el usuario' });
         }
     } catch (err) {
         console.error(err.message);
-        if (err.code === 'ER_ROW_IS_REFERENCED_2') {
-            return res.status(400).json({ 
-                msg: 'No se puede eliminar el usuario porque tiene incidencias asociadas' 
-            });
-        }
         res.status(500).send('Error del servidor');
     }
 };

@@ -12,13 +12,15 @@ exports.getAllIncidents = async (req, res) => {
         const userSede = req.user.sede;
         const userDepartamento = req.user.departamento;
         
-        const incidents = await Incident.getVisibleForUser(
-            userRole, 
-            userSede, 
+        // Usar getAll con datos del usuario para garantizar visibilidad correcta
+        const incidents = await Incident.getAll(
             status, 
             assigned_to, 
-            { departamento, sede },
-            userDepartamento
+            userRole, 
+            userSede, 
+            userDepartamento, 
+            req.user.id,
+            { departamento, sede }
         );
         
         res.json(incidents);
@@ -37,7 +39,7 @@ exports.getMyIncidents = async (req, res) => {
         const userSede = req.user.sede;
         const userDepartamento = req.user.departamento;
         
-        const incidents = await Incident.getVisibleForUser(userRole, userSede, null, req.user.id, {}, userDepartamento);
+        const incidents = await Incident.getVisibleForUser(userRole, userSede, null, req.user.id, {}, userDepartamento, req.user.id);
         res.json(incidents);
     } catch (err) {
         console.error(err.message);
@@ -61,7 +63,8 @@ exports.getPendingIncidents = async (req, res) => {
             'pendiente', 
             null, 
             { departamento, sede },
-            userDepartamento
+            userDepartamento,
+            req.user.id
         );
         res.json(incidents);
     } catch (err) {
@@ -78,8 +81,26 @@ exports.getIncidentsInSupervision = async (req, res) => {
         const userRole = req.user.role;
         const userSede = req.user.sede;
         const userDepartamento = req.user.departamento;
+        const { departamento, sede, creador, tiempo_supervision } = req.query; // Capturar filtros de la query
+
+        // Construir objeto de filtros para el modelo
+        const filters = {};
+        if (departamento) filters.departamento = departamento;
+        if (sede) filters.sede = sede;
+        if (creador) filters.creador = creador;
+        if (tiempo_supervision) filters.tiempo_supervision = tiempo_supervision;
         
-        const incidents = await Incident.getVisibleForUser(userRole, userSede, 'en_supervision', null, {}, userDepartamento);
+        
+        const incidents = await Incident.getVisibleForUser(
+            userRole, 
+            userSede, 
+            'en_supervision', 
+            null, 
+            filters, // Pasar los filtros al modelo
+            userDepartamento, 
+            req.user.id
+        );
+        
         res.json(incidents);
     } catch (err) {
         console.error(err.message);
@@ -96,7 +117,7 @@ exports.getApprovedIncidents = async (req, res) => {
         const userSede = req.user.sede;
         const userDepartamento = req.user.departamento;
         
-        const incidents = await Incident.getApprovedIncidentsForUser(userRole, userSede, userDepartamento);
+        const incidents = await Incident.getApprovedIncidentsForUser(userRole, userSede, userDepartamento, req.user.id);
         
         res.json(incidents);
     } catch (err) {
@@ -151,7 +172,20 @@ exports.createIncident = async (req, res) => {
 
     // Validar sede
     const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
-    const incidentSede = sede || req.user.sede || 'bogota';
+    let incidentSede;
+    
+    // Para jefes de operaciones, siempre usar su sede (no pueden cambiarla)
+    if (req.user.role === 'jefe_operaciones') {
+        incidentSede = req.user.sede;
+        if (sede && sede !== req.user.sede) {
+            return res.status(400).json({ 
+                msg: `Los jefes de operaciones solo pueden crear incidencias en su sede: ${req.user.sede}` 
+            });
+        }
+    } else {
+        incidentSede = sede || req.user.sede || 'bogota';
+    }
+    
     if (!validSedes.includes(incidentSede)) {
         return res.status(400).json({ 
             msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
@@ -172,14 +206,33 @@ exports.createIncident = async (req, res) => {
         }
     }
 
-    // Validar departamentos según la sede
-    const validDepartamentos = incidentSede === 'bogota' 
-        ? ['obama', 'majority', 'claro'] 
-        : ['obama', 'claro']; // Villavicencio y Barranquilla no tienen majority
+    // Validar departamentos según la sede y rol
+    const userRole = req.user.role;
+    const isAdministrativo = userRole === 'administrativo';
+    const isJefeOperaciones = userRole === 'jefe_operaciones';
+    let validDepartamentos;
+    
+    if (isAdministrativo) {
+        validDepartamentos = ['cont', 'sel', 'rec', 'fin'];
+    } else if (isJefeOperaciones) {
+        // Jefes de operaciones solo pueden crear incidencias en su propio departamento
+        validDepartamentos = [req.user.departamento];
+        // Si no especifica departamento, usar el del jefe de operaciones
+        if (!departamento || departamento !== req.user.departamento) {
+            return res.status(400).json({ 
+                msg: `Los jefes de operaciones solo pueden crear incidencias en su departamento: ${req.user.departamento}` 
+            });
+        }
+    } else {
+        validDepartamentos = incidentSede === 'bogota' 
+            ? ['obama', 'majority', 'claro'] 
+            : ['obama', 'claro']; // Villavicencio y Barranquilla no tienen majority
+    }
         
     if (!validDepartamentos.includes(departamento)) {
+        const roleDescription = isAdministrativo ? 'administrativo' : isJefeOperaciones ? 'jefe de operaciones' : incidentSede;
         return res.status(400).json({ 
-            msg: `Departamento no válido para ${incidentSede}. Debe ser: ${validDepartamentos.join(', ')}` 
+            msg: `Departamento no válido para ${roleDescription}. Debe ser: ${validDepartamentos.join(', ')}` 
         });
     }
 
@@ -205,28 +258,19 @@ exports.createIncident = async (req, res) => {
         let workstation;
         
         if (incidentSede === 'barranquilla') {
-            // Para Barranquilla, crear/actualizar con campos de trabajo remoto
-            const existingStation = await Workstation.getByStationCode(stationCode);
+            // Para Barranquilla, siempre crear una nueva workstation única para preservar datos históricos
+            // Generar código único con sufijo aleatorio corto
+            const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const uniqueStationCode = `${stationCode}-${randomSuffix}`;
             
-            if (existingStation) {
-                // Actualizar estación existente con nuevos datos remotos
-                await Workstation.update(existingStation.id, {
-                    ...existingStation,
-                    anydesk_address,
-                    advisor_cedula
-                });
-                workstation = { ...existingStation, anydesk_address, advisor_cedula };
-            } else {
-                // Crear nueva estación con datos remotos
-                workstation = await Workstation.create({
-                    station_code: stationCode,
-                    location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
-                    sede: incidentSede,
-                    departamento,
-                    anydesk_address,
-                    advisor_cedula
-                });
-            }
+            workstation = await Workstation.create({
+                station_code: uniqueStationCode,
+                location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
+                sede: incidentSede,
+                departamento,
+                anydesk_address,
+                advisor_cedula
+            });
         } else {
             // Para otras sedes, usar el método existente
             workstation = await Workstation.findOrCreateByCode(stationCode, departamento, incidentSede);
@@ -253,7 +297,7 @@ exports.createIncident = async (req, res) => {
 // @route   POST /api/incidents/with-files
 // @access  Private (Coordinadores)
 exports.createIncidentWithFiles = async (req, res) => {
-    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula, advisor_contact } = req.body;
+    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula } = req.body;
 
     // Validaciones básicas
     if (!departamento || !failure_type || !description) {
@@ -265,6 +309,24 @@ exports.createIncidentWithFiles = async (req, res) => {
     // Validar sede
     const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
     const incidentSede = sede || req.user.sede || 'bogota';
+    
+    // DEBUG - Log para identificar el problema con las incidencias
+    console.log('🔍 DEBUG - createIncidentWithFiles - valores recibidos:', {
+        sede_from_form: sede,
+        sede_type: typeof sede,
+        sede_empty_check: sede === '',
+        user_sede: req.user.sede,
+        incident_sede_final: incidentSede,
+        user_info: { 
+            id: req.user.id, 
+            username: req.user.username, 
+            role: req.user.role,
+            full_name: req.user.fullName 
+        },
+        body_keys: Object.keys(req.body),
+        all_body: req.body
+    });
+    
     if (!validSedes.includes(incidentSede)) {
         return res.status(400).json({ 
             msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
@@ -272,9 +334,13 @@ exports.createIncidentWithFiles = async (req, res) => {
     }
 
     // Para Barranquilla, puesto_numero puede ser opcional (será 1 por defecto)
-    const puestoNum = incidentSede === 'barranquilla' ? 1 : parseInt(puesto_numero);
+    // Para administrativos, puesto_numero será 0 (sin puesto específico)
+    const isAdministrativo = req.user.role === 'administrativo';
+    const puestoNum = incidentSede === 'barranquilla' ? 1 : 
+                     isAdministrativo ? 0 : 
+                     parseInt(puesto_numero);
 
-    if (incidentSede !== 'barranquilla' && (!puesto_numero || isNaN(puestoNum) || puestoNum < 1 || puestoNum > 300)) {
+    if (incidentSede !== 'barranquilla' && !isAdministrativo && (!puesto_numero || isNaN(puestoNum) || puestoNum < 1 || puestoNum > 300)) {
         return res.status(400).json({ 
             msg: 'Número de puesto debe ser un número entre 1 y 300' 
         });
@@ -292,21 +358,23 @@ exports.createIncidentWithFiles = async (req, res) => {
                 msg: 'La cédula del asesor es requerida para incidencias en Barranquilla' 
             });
         }
-        if (!advisor_contact) {
-            return res.status(400).json({ 
-                msg: 'El número de contacto del asesor es requerido para incidencias en Barranquilla' 
-            });
-        }
     }
 
-    // Validar departamentos según la sede
-    const validDepartamentos = incidentSede === 'bogota' 
-        ? ['obama', 'majority', 'claro'] 
-        : ['obama', 'claro']; // Villavicencio y Barranquilla no tienen majority
+    // Validar departamentos según la sede y rol
+    // isAdministrativo ya declarado arriba
+    let validDepartamentos;
+    
+    if (isAdministrativo) {
+        validDepartamentos = ['cont', 'sel', 'rec', 'fin'];
+    } else {
+        validDepartamentos = incidentSede === 'bogota' 
+            ? ['obama', 'majority', 'claro'] 
+            : ['obama', 'claro']; // Villavicencio y Barranquilla no tienen majority
+    }
         
     if (!validDepartamentos.includes(departamento)) {
         return res.status(400).json({ 
-            msg: `Departamento no válido para ${incidentSede}. Debe ser: ${validDepartamentos.join(', ')}` 
+            msg: `Departamento no válido para ${isAdministrativo ? 'administrativo' : incidentSede}. Debe ser: ${validDepartamentos.join(', ')}` 
         });
     }
 
@@ -318,42 +386,80 @@ exports.createIncidentWithFiles = async (req, res) => {
     }
 
     function generateStationCode(sede, departamento, puestoNumero) {
-        const sedeCode = sede.toUpperCase().charAt(0);
-        const deptoCode = departamento.toUpperCase().substring(0, 3);
-        return `${sedeCode}-${deptoCode}-${puestoNumero.toString().padStart(3, '0')}`;
+        const sedePrefixes = {
+            'bogota': 'BOG-',
+            'barranquilla': 'BAQ-',
+            'villavicencio': 'VVC-'
+        };
+        
+        const deptPrefixes = {
+            'obama': 'O',
+            'majority': 'M', 
+            'claro': 'C'
+        };
+        
+        const sedePrefix = sedePrefixes[sede] || 'BOG-';
+        const deptPrefix = deptPrefixes[departamento];
+        const paddedNumber = String(puestoNumero).padStart(3, '0');
+        
+        return `${sedePrefix}${deptPrefix}${paddedNumber}`;
     }
 
     try {
         // Generar código de estación automáticamente
+        console.log('Generando código de estación para administrativo:', { incidentSede, departamento, puestoNum, isAdministrativo });
         const stationCode = generateStationCode(incidentSede, departamento, puestoNum);
+        console.log('Código de estación generado:', stationCode);
         
         // Crear o encontrar la estación de trabajo
         let workstation;
         
         if (incidentSede === 'barranquilla') {
-            // Para Barranquilla, crear/actualizar con campos de trabajo remoto
+            // Para Barranquilla, siempre crear una nueva workstation única para preservar datos históricos
+            // Generar código único con sufijo aleatorio corto
+            const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const uniqueStationCode = `${stationCode}-${randomSuffix}`;
+            
+            workstation = await Workstation.create({
+                station_code: uniqueStationCode,
+                location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
+                sede: incidentSede,
+                departamento,
+                anydesk_address,
+                advisor_cedula
+            });
+        } else if (isAdministrativo) {
+            // Para administrativos, crear workstation especial
+            console.log('Procesando workstation para administrativo');
             const existingStation = await Workstation.getByStationCode(stationCode);
+            console.log('Estación existente encontrada:', existingStation ? 'Sí' : 'No');
             
             if (existingStation) {
-                // Actualizar estación existente con nuevos datos remotos
-                await Workstation.update(existingStation.id, {
-                    ...existingStation,
-                    anydesk_address,
-                    advisor_cedula,
-                    advisor_contact
-                });
-                workstation = { ...existingStation, anydesk_address, advisor_cedula, advisor_contact };
+                workstation = existingStation;
             } else {
-                // Crear nueva estación con datos remotos
+                // Crear workstation para área administrativa
+                console.log('Creando nueva workstation para administrativo');
+                const departamentoLabel = {
+                    'cont': 'Contratación',
+                    'sel': 'Selección', 
+                    'rec': 'Reclutamiento',
+                    'fin': 'Área Financiera'
+                }[departamento] || departamento;
+                
+                console.log('Datos de workstation a crear:', {
+                    station_code: stationCode,
+                    location_details: `Área ${departamentoLabel} - ${incidentSede.toUpperCase()}`,
+                    sede: incidentSede,
+                    departamento: departamento
+                });
+                
                 workstation = await Workstation.create({
                     station_code: stationCode,
-                    location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
+                    location_details: `Área ${departamentoLabel} - ${incidentSede.toUpperCase()}`,
                     sede: incidentSede,
-                    departamento,
-                    anydesk_address,
-                    advisor_cedula,
-                    advisor_contact
+                    departamento: departamento
                 });
+                console.log('Workstation creada exitosamente:', workstation.id);
             }
         } else {
             // Para otras sedes, usar el método existente
@@ -365,6 +471,21 @@ exports.createIncidentWithFiles = async (req, res) => {
             reported_by_id: req.user.id,
             failure_type,
             description
+        });
+
+        // DEBUG - Log para confirmar datos de la workstation creada
+        console.log('🔍 DEBUG - Workstation y incidencia creada:', {
+            workstation_data: {
+                id: workstation.id,
+                station_code: workstation.station_code,
+                sede: workstation.sede,
+                departamento: workstation.departamento
+            },
+            incident_data: {
+                id: newIncident.id,
+                workstation_id: newIncident.workstation_id
+            },
+            used_incident_sede: incidentSede
         });
 
         // Guardar archivos adjuntos si existen
@@ -405,7 +526,8 @@ exports.createIncidentWithFiles = async (req, res) => {
             attachments: attachments
         });
     } catch (err) {
-        console.error(err.message);
+        console.error('Error en createIncidentWithFiles:', err.message);
+        console.error('Stack trace:', err.stack);
         res.status(500).send('Error del servidor');
     }
 };
@@ -413,7 +535,7 @@ exports.createIncidentWithFiles = async (req, res) => {
 // Función para generar código de estación
 const generateStationCode = (sede, departamento, puestoNumero) => {
     const sedePrefixes = {
-        'bogota': '',
+        'bogota': 'BOG-',
         'barranquilla': 'BAQ-',
         'villavicencio': 'VVC-'
     };
@@ -424,7 +546,7 @@ const generateStationCode = (sede, departamento, puestoNumero) => {
         'claro': 'C'
     };
     
-    const sedePrefix = sedePrefixes[sede] || '';
+    const sedePrefix = sedePrefixes[sede] || 'BOG-';
     const deptPrefix = deptPrefixes[departamento];
     const paddedNumber = String(puestoNumero).padStart(3, '0');
     
@@ -465,6 +587,46 @@ exports.assignTechnician = async (req, res) => {
     } catch (err) {
         console.error(err.message);
         if (err.message.includes('No se pudo asignar técnico')) {
+            return res.status(400).json({ msg: err.message });
+        }
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Reasignar técnico a una incidencia en proceso
+// @route   PUT /api/incidents/:id/reassign
+// @access  Private (Solo Admin)
+exports.reassignTechnician = async (req, res) => {
+    const { technician_id, reason } = req.body;
+
+    if (!technician_id) {
+        return res.status(400).json({ msg: 'ID del nuevo técnico es requerido' });
+    }
+
+    try {
+        // Solo admins pueden reasignar técnicos
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ msg: 'Solo los administradores pueden reasignar técnicos' });
+        }
+
+        // Verificar que el técnico existe y tiene el rol correcto
+        const technician = await User.getById(technician_id);
+        if (!technician) {
+            return res.status(404).json({ msg: 'Técnico no encontrado' });
+        }
+
+        if (technician.role !== 'technician') {
+            return res.status(400).json({ msg: 'El usuario seleccionado no es un técnico' });
+        }
+
+        await Incident.reassignTechnician(req.params.id, technician_id, req.user.id, reason);
+        
+        res.json({ 
+            msg: `Incidencia reasignada exitosamente a ${technician.full_name}` 
+        });
+    } catch (err) {
+        console.error(err.message);
+        if (err.message.includes('No se pudo reasignar')) {
             return res.status(400).json({ msg: err.message });
         }
         res.status(500).send('Error del servidor');
@@ -604,8 +766,12 @@ exports.getIncidentAttachments = async (req, res) => {
 exports.getStatsBySede = async (req, res) => {
     try {
         const db = require('../config/db');
+        const userRole = req.user.role;
+        const userSede = req.user.sede;
+        const userDepartamento = req.user.departamento;
+        const userId = req.user.id;
         
-        const [rows] = await db.execute(`
+        let query = `
             SELECT 
                 w.sede,
                 COUNT(CASE WHEN i.status = 'pendiente' THEN 1 END) as pendientes,
@@ -615,9 +781,59 @@ exports.getStatsBySede = async (req, res) => {
                 COUNT(*) as total
             FROM incidents i
             JOIN workstations w ON i.workstation_id = w.id
-            GROUP BY w.sede
-            ORDER BY w.sede
-        `);
+            JOIN users reporter ON i.reported_by_id = reporter.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        
+        // Aplicar los mismos filtros de visibilidad que getVisibleForUser
+        // Admin ve todas las sedes sin filtros
+        if (userRole === 'admin') {
+            // No aplicar filtros - el admin ve todo
+        } else if (userRole === 'technician') {
+            if (userSede === 'bogota') {
+                query += ' AND w.sede IN ("bogota", "barranquilla")';
+            } else if (userSede === 'villavicencio') {
+                query += ' AND w.sede IN ("villavicencio", "barranquilla")';
+            } else {
+                query += ' AND w.sede = ?';
+                params.push(userSede);
+            }
+        } else if (userRole === 'supervisor') {
+            if (userSede === 'bogota') {
+                query += ' AND w.sede IN ("bogota", "barranquilla")';
+            } else if (userSede === 'villavicencio') {
+                query += ' AND w.sede IN ("villavicencio", "barranquilla")';
+            } else {
+                query += ' AND w.sede = ?';
+                params.push(userSede);
+            }
+        } else if (userRole === 'coordinador') {
+            if (userSede === 'bogota') {
+                query += ' AND w.sede IN ("bogota", "barranquilla")';
+            } else if (userSede === 'villavicencio') {
+                query += ' AND w.sede IN ("villavicencio", "barranquilla")';
+            } else {
+                query += ' AND w.sede = ?';
+                params.push(userSede);
+            }
+        } else if (userRole === 'jefe_operaciones') {
+            query += ' AND w.sede = ? AND w.departamento = ?';
+            params.push(userSede);
+            params.push(userDepartamento);
+        }
+        
+        // Roles administrativos solo ven sus propias incidencias
+        if (userRole === 'administrativo') {
+            query += ' AND i.reported_by_id = ?';
+            params.push(userId);
+        }
+        // Solo admin ve todo
+        
+        query += ' GROUP BY w.sede ORDER BY w.sede';
+        
+        const [rows] = await db.execute(query, params);
         
         // Asegurar que todas las sedes están incluidas, incluso con 0 incidencias
         const sedesBase = ['bogota', 'barranquilla', 'villavicencio'];
@@ -829,6 +1045,209 @@ exports.getTechniciansRanking = async (req, res) => {
         res.json(rankingData);
     } catch (err) {
         console.error(err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Enviar alerta a responsables de incidencias pendientes de aprobación
+// @route   POST /api/incidents/send-alerts
+// @access  Private (Solo Admin)
+exports.sendApprovalAlerts = async (req, res) => {
+    try {
+        const { incident_ids, alert_message } = req.body;
+
+        // Solo admins pueden enviar alertas
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ msg: 'Solo los administradores pueden enviar alertas' });
+        }
+
+        if (!incident_ids || !Array.isArray(incident_ids) || incident_ids.length === 0) {
+            return res.status(400).json({ msg: 'Se requiere una lista de IDs de incidencias' });
+        }
+
+        if (!alert_message || alert_message.trim().length === 0) {
+            return res.status(400).json({ msg: 'El mensaje de alerta es requerido' });
+        }
+
+        const db = require('../config/db');
+        const placeholders = incident_ids.map(() => '?').join(',');
+        
+        // Obtener información de las incidencias y sus responsables
+        const [incidents] = await db.query(`
+            SELECT DISTINCT
+                i.id as incident_id,
+                i.created_at,
+                i.updated_at,
+                w.station_code,
+                w.sede,
+                w.departamento,
+                reporter.id as reporter_id,
+                reporter.full_name as reporter_name,
+                reporter.role as reporter_role,
+                TIMESTAMPDIFF(HOUR, i.updated_at, NOW()) as hours_in_supervision
+            FROM incidents i
+            JOIN workstations w ON i.workstation_id = w.id
+            JOIN users reporter ON i.reported_by_id = reporter.id
+            WHERE i.id IN (${placeholders}) 
+            AND i.status = 'en_supervision'
+        `, incident_ids);
+
+        if (incidents.length === 0) {
+            return res.status(404).json({ msg: 'No se encontraron incidencias válidas en supervisión' });
+        }
+
+        // Agrupar incidencias por responsable
+        const alertsByUser = {};
+        incidents.forEach(incident => {
+            const userId = incident.reporter_id;
+            if (!alertsByUser[userId]) {
+                alertsByUser[userId] = {
+                    user_info: {
+                        id: incident.reporter_id,
+                        name: incident.reporter_name,
+                        role: incident.reporter_role
+                    },
+                    incidents: []
+                };
+            }
+            alertsByUser[userId].incidents.push({
+                id: incident.incident_id,
+                station_code: incident.station_code,
+                sede: incident.sede,
+                departamento: incident.departamento,
+                hours_in_supervision: incident.hours_in_supervision
+            });
+        });
+
+        // Crear registros de alertas en la base de datos
+        const alertsCreated = [];
+        for (const userId in alertsByUser) {
+            const userAlerts = alertsByUser[userId];
+            const incidentList = userAlerts.incidents.map(inc => 
+                `${inc.station_code} (${inc.hours_in_supervision}h)`
+            ).join(', ');
+            
+            const fullMessage = `${alert_message}\n\nIncidencias pendientes: ${incidentList}`;
+            
+            // Insertar alerta en la base de datos
+            const [result] = await db.execute(`
+                INSERT INTO supervision_alerts 
+                (sent_by_id, sent_to_id, message, incident_ids, status) 
+                VALUES (?, ?, ?, ?, 'sent')
+            `, [
+                req.user.id, 
+                userId, 
+                fullMessage, 
+                JSON.stringify(userAlerts.incidents.map(inc => inc.id))
+            ]);
+
+            alertsCreated.push({
+                alert_id: result.insertId,
+                sent_to: userAlerts.user_info,
+                incidents_count: userAlerts.incidents.length,
+                incidents: userAlerts.incidents
+            });
+        }
+
+        res.json({
+            msg: `Alertas enviadas exitosamente a ${Object.keys(alertsByUser).length} responsable(s)`,
+            alerts_sent: alertsCreated.length,
+            recipients: alertsCreated.map(alert => ({
+                name: alert.sent_to.name,
+                role: alert.sent_to.role,
+                incidents_count: alert.incidents_count
+            }))
+        });
+
+    } catch (err) {
+        console.error('Error enviando alertas:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Obtener alertas para el usuario actual
+// @route   GET /api/incidents/my-alerts
+// @access  Private
+exports.getMyAlerts = async (req, res) => {
+    try {
+        const db = require('../config/db');
+        
+        const [alerts] = await db.query(`
+            SELECT 
+                sa.id,
+                sa.message,
+                sa.incident_ids,
+                sa.status,
+                sa.created_at,
+                sa.read_at,
+                sender.full_name as sent_by_name,
+                sender.role as sent_by_role
+            FROM supervision_alerts sa
+            JOIN users sender ON sa.sent_by_id = sender.id
+            WHERE sa.sent_to_id = ?
+            ORDER BY sa.created_at DESC
+            LIMIT 50
+        `, [req.user.id]);
+
+        res.json({
+            alerts,
+            unread_count: alerts.filter(alert => alert.status === 'sent').length
+        });
+
+    } catch (err) {
+        console.error('Error obteniendo alertas:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Marcar alerta como leída
+// @route   PUT /api/incidents/alerts/:id/read
+// @access  Private
+exports.markAlertAsRead = async (req, res) => {
+    try {
+        const db = require('../config/db');
+        const alertId = req.params.id;
+        
+        const [result] = await db.execute(`
+            UPDATE supervision_alerts 
+            SET status = 'read', read_at = CURRENT_TIMESTAMP 
+            WHERE id = ? AND sent_to_id = ? AND status = 'sent'
+        `, [alertId, req.user.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ msg: 'Alerta no encontrada o ya fue leída' });
+        }
+
+        res.json({ msg: 'Alerta marcada como leída' });
+
+    } catch (err) {
+        console.error('Error marcando alerta como leída:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Descartar alerta
+// @route   PUT /api/incidents/alerts/:id/dismiss
+// @access  Private
+exports.dismissAlert = async (req, res) => {
+    try {
+        const db = require('../config/db');
+        const alertId = req.params.id;
+        
+        const [result] = await db.execute(`
+            UPDATE supervision_alerts 
+            SET status = 'dismissed' 
+            WHERE id = ? AND sent_to_id = ?
+        `, [alertId, req.user.id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ msg: 'Alerta no encontrada' });
+        }
+
+        res.json({ msg: 'Alerta descartada' });
+
+    } catch (err) {
+        console.error('Error descartando alerta:', err.message);
         res.status(500).send('Error del servidor');
     }
 };

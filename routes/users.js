@@ -3,6 +3,7 @@ const router = express.Router();
 const {
     getAllUsers,
     getTechnicians,
+    getCoordinators,
     getUserById,
     createUser,
     updateUser,
@@ -15,6 +16,9 @@ router.use(verifyToken);
 
 // Ruta para obtener todos los técnicos (accesible para todos los roles)
 router.get('/technicians', getTechnicians);
+
+// Ruta para obtener coordinadores (jefes de operaciones)
+router.get('/coordinators', getCoordinators);
 
 // Rutas solo para administradores
 router.get('/', isAdmin, getAllUsers);
