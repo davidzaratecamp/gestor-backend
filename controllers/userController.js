@@ -97,6 +97,11 @@ exports.createUser = async (req, res) => {
         });
     }
 
+    // No permitir crear usuarios anónimos desde la interfaz
+    if (role === 'anonimo') {
+        return res.status(400).json({ msg: 'No se pueden crear usuarios anónimos desde esta interfaz' });
+    }
+
     const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
     if (sede && !validSedes.includes(sede)) {
         return res.status(400).json({ 
@@ -206,6 +211,11 @@ exports.updateUser = async (req, res) => {
             return res.status(404).json({ msg: 'Usuario no encontrado' });
         }
 
+        // No permitir editar usuarios anónimos
+        if (userExists.role === 'anonimo') {
+            return res.status(400).json({ msg: 'No se pueden editar usuarios anónimos' });
+        }
+
         // Verificar si el nuevo username ya existe en otro usuario
         const existingUser = await User.getByUsername(username);
         if (existingUser && existingUser.id !== parseInt(req.params.id)) {
@@ -261,6 +271,11 @@ exports.deleteUser = async (req, res) => {
         // No permitir que el admin se elimine a sí mismo
         if (parseInt(req.params.id) === req.user.id) {
             return res.status(400).json({ msg: 'No puedes eliminar tu propio usuario' });
+        }
+
+        // No permitir eliminar usuarios anónimos
+        if (user.role === 'anonimo') {
+            return res.status(400).json({ msg: 'No se pueden eliminar usuarios anónimos' });
         }
 
         // Verificar incidencias asociadas para mostrar información al admin

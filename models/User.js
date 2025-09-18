@@ -5,7 +5,8 @@ class User {
     static async getAll() {
         try {
             const [rows] = await db.query(
-                'SELECT id, username, full_name, role, sede, departamento, created_at FROM users ORDER BY full_name'
+                'SELECT id, username, full_name, role, sede, departamento, created_at FROM users WHERE role != ? ORDER BY full_name',
+                ['anonimo']
             );
             return rows;
         } catch (error) {
