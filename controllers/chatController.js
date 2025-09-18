@@ -39,6 +39,33 @@ exports.sendMessage = async (req, res) => {
             VALUES (?, ?, ?)
         `, [from_user_id, to_user_id, message.trim()]);
 
+        const messageId = result.insertId;
+
+        // Obtener información completa del mensaje para el WebSocket
+        const [messageData] = await db.execute(`
+            SELECT 
+                m.*,
+                from_user.full_name as from_user_name,
+                to_user.full_name as to_user_name
+            FROM private_chat_messages m
+            JOIN users from_user ON m.from_user_id = from_user.id
+            JOIN users to_user ON m.to_user_id = to_user.id
+            WHERE m.id = ?
+        `, [messageId]);
+
+        // Enviar notificación en tiempo real al destinatario
+        if (global.sendMessageToUser) {
+            const sent = global.sendMessageToUser(to_user_id, 'new_message', {
+                message: messageData[0],
+                sender: {
+                    id: from_user_id,
+                    name: req.user.fullName || req.user.full_name,
+                    role: req.user.role
+                }
+            });
+            console.log(`Notificación WebSocket enviada a usuario ${to_user_id}:`, sent);
+        }
+
         // Crear o actualizar conversación
         if (req.user.role === 'anonimo') {
             await db.execute(`
