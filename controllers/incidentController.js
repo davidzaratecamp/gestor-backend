@@ -1130,23 +1130,25 @@ exports.sendApprovalAlerts = async (req, res) => {
             const fullMessage = `${alert_message}\n\nIncidencias pendientes: ${incidentList}`;
             
             // Insertar alerta en la base de datos
-            const [result] = await db.execute(`
-                INSERT INTO supervision_alerts 
-                (sent_by_id, sent_to_id, message, incident_ids, status) 
-                VALUES (?, ?, ?, ?, 'sent')
-            `, [
-                req.user.id, 
-                userId, 
-                fullMessage, 
-                JSON.stringify(userAlerts.incidents.map(inc => inc.id))
-            ]);
-
-            alertsCreated.push({
-                alert_id: result.insertId,
-                sent_to: userAlerts.user_info,
-                incidents_count: userAlerts.incidents.length,
-                incidents: userAlerts.incidents
-            });
+            // Para cada incidencia, crear una alerta separada
+            for (const incident of userAlerts.incidents) {
+                const [result] = await db.execute(`
+                    INSERT INTO supervision_alerts 
+                    (incident_id, coordinator_id, alert_message) 
+                    VALUES (?, ?, ?)
+                `, [
+                    incident.id,
+                    userId, 
+                    alert_message
+                ]);
+                
+                alertsCreated.push({
+                    alert_id: result.insertId,
+                    incident_id: incident.id,
+                    sent_to: userAlerts.user_info,
+                    message: alert_message
+                });
+            }
         }
 
         res.json({
@@ -1175,23 +1177,20 @@ exports.getMyAlerts = async (req, res) => {
         const [alerts] = await db.query(`
             SELECT 
                 sa.id,
-                sa.message,
-                sa.incident_ids,
+                sa.alert_message as message,
+                sa.incident_id,
                 sa.status,
                 sa.created_at,
-                sa.read_at,
-                sender.full_name as sent_by_name,
-                sender.role as sent_by_role
+                sa.read_at
             FROM supervision_alerts sa
-            JOIN users sender ON sa.sent_by_id = sender.id
-            WHERE sa.sent_to_id = ?
+            WHERE sa.coordinator_id = ?
             ORDER BY sa.created_at DESC
             LIMIT 50
         `, [req.user.id]);
 
         res.json({
             alerts,
-            unread_count: alerts.filter(alert => alert.status === 'sent').length
+            unread_count: alerts.filter(alert => alert.status === 'active').length
         });
 
     } catch (err) {
@@ -1211,7 +1210,7 @@ exports.markAlertAsRead = async (req, res) => {
         const [result] = await db.execute(`
             UPDATE supervision_alerts 
             SET status = 'read', read_at = CURRENT_TIMESTAMP 
-            WHERE id = ? AND sent_to_id = ? AND status = 'sent'
+            WHERE id = ? AND coordinator_id = ? AND status = 'active'
         `, [alertId, req.user.id]);
 
         if (result.affectedRows === 0) {
@@ -1236,8 +1235,8 @@ exports.dismissAlert = async (req, res) => {
         
         const [result] = await db.execute(`
             UPDATE supervision_alerts 
-            SET status = 'dismissed' 
-            WHERE id = ? AND sent_to_id = ?
+            SET status = 'dismissed', dismissed_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND coordinator_id = ?
         `, [alertId, req.user.id]);
 
         if (result.affectedRows === 0) {
