@@ -30,6 +30,7 @@ exports.login = async (req, res) => {
         const payload = {
             user: {
                 id: user.id,
+                username: user.username,
                 role: user.role,
                 sede: user.sede,
                 departamento: user.departamento,
