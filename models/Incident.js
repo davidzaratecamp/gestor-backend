@@ -531,8 +531,14 @@ class Incident {
             
             // Filtros de campaña y sede (solo para admin)
             if (filters.departamento) {
-                query += ' AND w.departamento = ?';
-                params.push(filters.departamento);
+                if (filters.departamento === 'administrativo') {
+                    // Para administrativo, filtrar por el rol del reporter
+                    query += ' AND reporter.role = "administrativo"';
+                } else {
+                    // Para otros departamentos, filtrar por el departamento de la workstation
+                    query += ' AND w.departamento = ?';
+                    params.push(filters.departamento);
+                }
             }
             
             if (filters.sede && userRole === 'admin') {

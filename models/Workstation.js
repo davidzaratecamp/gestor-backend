@@ -122,10 +122,11 @@ class Workstation {
 
     static async findOrCreateByCode(stationCode, departamento, sede = 'bogota') {
         try {
-            // Primero intentar encontrar la estación existente con el código Y la sede
+            
+            // Primero intentar encontrar la estación existente con el código, sede Y departamento
             const [rows] = await db.query(
-                'SELECT * FROM workstations WHERE station_code = ? AND sede = ?', 
-                [stationCode, sede]
+                'SELECT * FROM workstations WHERE station_code = ? AND sede = ? AND departamento = ?', 
+                [stationCode, sede, departamento]
             );
             const existingStation = rows[0];
             
@@ -135,6 +136,7 @@ class Workstation {
             
             // Si no existe, crearla automáticamente
             const locationDetails = `Puesto ${stationCode} - ${departamento.toUpperCase()}`;
+            
             
             const newStation = await this.create({
                 station_code: stationCode,

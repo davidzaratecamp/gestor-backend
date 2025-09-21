@@ -17,6 +17,8 @@ const {
     getTechnicianRatings,
     getMyRatings,
     getTechniciansRanking,
+    getCoordinatorsRanking,
+    exportOldIncidents,
     assignTechnician,
     reassignTechnician,
     markAsResolved,
@@ -57,6 +59,18 @@ router.get('/approved', getApprovedIncidents);
 router.get('/stats/by-sede', verifyRole(['admin']), getStatsBySede);
 router.get('/stats/technicians', verifyRole(['admin']), getTechniciansStatus);
 router.get('/stats/technicians-ranking', verifyRole(['admin']), getTechniciansRanking);
+router.get('/stats/coordinators-ranking', verifyRole(['admin']), getCoordinatorsRanking);
+
+// Rutas de exportación (solo para admin)
+// Ruta de exportación con logging detallado
+router.get('/export/old-incidents', (req, res, next) => {
+    console.log('🔍 DEBUG - Export route called, user:', {
+        id: req.user?.id,
+        role: req.user?.role,
+        fullName: req.user?.fullName
+    });
+    next();
+}, verifyRole(['admin']), exportOldIncidents);
 
 // Enviar alertas (solo para admin)
 router.post('/send-alerts', isAdmin, sendApprovalAlerts);
