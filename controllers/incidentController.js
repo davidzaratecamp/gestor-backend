@@ -1260,20 +1260,20 @@ exports.getMyAlerts = async (req, res) => {
         const [alerts] = await db.query(`
             SELECT 
                 sa.id,
-                sa.message,
-                sa.incident_ids,
+                sa.alert_message as message,
+                sa.incident_id,
                 sa.status,
                 sa.created_at,
                 sa.read_at
             FROM supervision_alerts sa
-            WHERE sa.sent_to_id = ?
+            WHERE sa.coordinator_id = ?
             ORDER BY sa.created_at DESC
             LIMIT 50
         `, [req.user.id]);
 
         res.json({
             alerts,
-            unread_count: alerts.filter(alert => alert.status === 'sent').length
+            unread_count: alerts.filter(alert => alert.status === 'active').length
         });
 
     } catch (err) {
