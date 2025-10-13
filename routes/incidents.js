@@ -24,6 +24,7 @@ const {
     markAsResolved,
     approveIncident,
     rejectIncident,
+    returnIncident,
     sendApprovalAlerts,
     getMyAlerts,
     markAlertAsRead,
@@ -106,6 +107,9 @@ router.put('/:id/reassign', isAdmin, reassignTechnician);
 
 // Marcar como resuelto (técnico)
 router.put('/:id/resolve', isTechnician, markAsResolved);
+
+// Devolver incidencia al creador (técnico)
+router.put('/:id/return', isTechnician, returnIncident);
 
 // Aprobar/rechazar incidencia (supervisor, coordinador, administrativo o admin)
 router.put('/:id/approve', canSuperviseIncidents, approveIncident);

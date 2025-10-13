@@ -687,13 +687,38 @@ exports.rejectIncident = async (req, res) => {
 
     try {
         await Incident.reject(req.params.id, req.user.id, rejection_reason);
-        
-        res.json({ 
-            msg: 'Incidencia rechazada y devuelta al técnico' 
+
+        res.json({
+            msg: 'Incidencia rechazada y devuelta al técnico'
         });
     } catch (err) {
         console.error(err.message);
         if (err.message.includes('No se pudo rechazar')) {
+            return res.status(400).json({ msg: err.message });
+        }
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Devolver incidencia al creador (técnico)
+// @route   PUT /api/incidents/:id/return
+// @access  Private (Technician)
+exports.returnIncident = async (req, res) => {
+    const { return_reason } = req.body;
+
+    if (!return_reason) {
+        return res.status(400).json({ msg: 'El motivo de la devolución es requerido' });
+    }
+
+    try {
+        await Incident.returnToCreator(req.params.id, req.user.id, return_reason);
+
+        res.json({
+            msg: 'Incidencia devuelta al creador para correcciones'
+        });
+    } catch (err) {
+        console.error(err.message);
+        if (err.message.includes('No se pudo devolver')) {
             return res.status(400).json({ msg: err.message });
         }
         res.status(500).send('Error del servidor');

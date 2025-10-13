@@ -271,13 +271,13 @@ class Incident {
 
     static async reject(incidentId, supervisorId, rejectionReason) {
         const connection = await db.getConnection();
-        
+
         try {
             await connection.beginTransaction();
 
             const [result] = await connection.query(`
-                UPDATE incidents 
-                SET status = 'en_proceso', updated_at = CURRENT_TIMESTAMP 
+                UPDATE incidents
+                SET status = 'en_proceso', updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND status = 'en_supervision'
             `, [incidentId]);
 
@@ -287,9 +287,65 @@ class Incident {
 
             // Registrar en el historial
             await connection.query(`
-                INSERT INTO incident_history (incident_id, user_id, action, details) 
+                INSERT INTO incident_history (incident_id, user_id, action, details)
                 VALUES (?, ?, 'Rechazado por supervisor', ?)
             `, [incidentId, supervisorId, `Motivo del rechazo: ${rejectionReason}`]);
+
+            await connection.commit();
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
+    static async returnToCreator(incidentId, technicianId, returnReason) {
+        const connection = await db.getConnection();
+
+        try {
+            await connection.beginTransaction();
+
+            // Obtener información actual de la incidencia
+            const [currentIncident] = await connection.query(`
+                SELECT i.*, u.full_name as technician_name, creator.full_name as creator_name
+                FROM incidents i
+                LEFT JOIN users u ON i.assigned_to_id = u.id
+                LEFT JOIN users creator ON i.reported_by_id = creator.id
+                WHERE i.id = ? AND i.assigned_to_id = ? AND i.status = 'en_proceso'
+            `, [incidentId, technicianId]);
+
+            if (currentIncident.length === 0) {
+                throw new Error('No se pudo devolver. La incidencia no está asignada a ti o no está en proceso.');
+            }
+
+            const incident = currentIncident[0];
+            const newReturnCount = (incident.return_count || 0) + 1;
+
+            // Actualizar incidencia: cambiar estado a 'devuelto' y registrar devolución
+            const [result] = await connection.query(`
+                UPDATE incidents
+                SET
+                    status = 'devuelto',
+                    returned_by_id = ?,
+                    return_reason = ?,
+                    returned_at = CURRENT_TIMESTAMP,
+                    return_count = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND assigned_to_id = ? AND status = 'en_proceso'
+            `, [technicianId, returnReason, newReturnCount, incidentId, technicianId]);
+
+            if (result.affectedRows === 0) {
+                throw new Error('No se pudo devolver la incidencia.');
+            }
+
+            // Registrar en el historial
+            const techName = incident.technician_name || 'Técnico';
+            await connection.query(`
+                INSERT INTO incident_history (incident_id, user_id, action, details)
+                VALUES (?, ?, 'Devuelto por técnico', ?)
+            `, [incidentId, technicianId, `${techName} devolvió la incidencia. Motivo: ${returnReason}`]);
 
             await connection.commit();
             return true;
