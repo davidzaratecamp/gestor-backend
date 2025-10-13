@@ -195,8 +195,10 @@ class User {
             // 2. Eliminar conversaciones de chat (como usuario anónimo o admin)
             await db.query('DELETE FROM chat_conversations WHERE anonymous_user_id = ? OR admin_user_id = ?', [id, id]);
 
-            // 3. Eliminar alertas de supervisión (como emisor y receptor)
-            await db.query('DELETE FROM supervision_alerts WHERE sent_by_id = ? OR sent_to_id = ?', [id, id]);
+            // 3. Eliminar alertas de supervisión
+            // NOTA: Esta tabla tiene ON DELETE CASCADE en la foreign key,
+            // pero eliminamos manualmente para mantener control de la transacción
+            await db.query('DELETE FROM supervision_alerts WHERE coordinator_id = ?', [id]);
 
             // 4. Eliminar calificaciones de técnicos (como técnico calificado y calificador)
             await db.query('DELETE FROM technician_ratings WHERE technician_id = ? OR rated_by_id = ?', [id, id]);
