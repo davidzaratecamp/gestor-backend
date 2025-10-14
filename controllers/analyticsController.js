@@ -224,23 +224,37 @@ exports.getTechnicianPerformance = async (req, res) => {
                 u.full_name,
                 COALESCE(u.sede, '') as sede,
                 COALESCE(u.departamento, '') as departamento,
-                COUNT(CASE WHEN i.assigned_to_id IS NOT NULL THEN 1 END) as total_assigned,
-                COUNT(CASE WHEN i.status = 'aprobado' THEN 1 END) as total_resolved,
-                COUNT(CASE WHEN i.status = 'en_proceso' THEN 1 END) as currently_working,
-                COALESCE(AVG(CASE 
-                    WHEN i.status = 'aprobado' 
-                    THEN TIMESTAMPDIFF(HOUR, i.created_at, i.updated_at) 
-                    ELSE NULL 
-                END), 0) as avg_resolution_time_hours,
-                COALESCE(AVG(tr.rating), 0) as avg_rating,
-                COUNT(DISTINCT tr.id) as total_ratings
+                COALESCE(incidents_stats.total_assigned, 0) as total_assigned,
+                COALESCE(incidents_stats.total_resolved, 0) as total_resolved,
+                COALESCE(incidents_stats.currently_working, 0) as currently_working,
+                COALESCE(incidents_stats.avg_resolution_time_hours, 0) as avg_resolution_time_hours,
+                COALESCE(ratings_stats.avg_rating, 0) as avg_rating,
+                COALESCE(ratings_stats.total_ratings, 0) as total_ratings
             FROM users u
-            LEFT JOIN incidents i ON u.id = i.assigned_to_id 
-                AND i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            LEFT JOIN technician_ratings tr ON u.id = tr.technician_id 
-                AND tr.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            LEFT JOIN (
+                SELECT 
+                    assigned_to_id,
+                    COUNT(*) as total_assigned,
+                    COUNT(CASE WHEN status = 'aprobado' THEN 1 END) as total_resolved,
+                    COUNT(CASE WHEN status = 'en_proceso' THEN 1 END) as currently_working,
+                    AVG(CASE 
+                        WHEN status = 'aprobado' 
+                        THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) 
+                        ELSE NULL 
+                    END) as avg_resolution_time_hours
+                FROM incidents 
+                WHERE assigned_to_id IS NOT NULL
+                GROUP BY assigned_to_id
+            ) incidents_stats ON u.id = incidents_stats.assigned_to_id
+            LEFT JOIN (
+                SELECT 
+                    technician_id,
+                    AVG(rating) as avg_rating,
+                    COUNT(*) as total_ratings
+                FROM technician_ratings
+                GROUP BY technician_id
+            ) ratings_stats ON u.id = ratings_stats.technician_id
             WHERE u.role = 'technician'
-            GROUP BY u.id, u.full_name, u.sede, u.departamento
             ORDER BY total_resolved DESC, avg_rating DESC
         `);
 
