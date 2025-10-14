@@ -237,14 +237,24 @@ exports.getTechnicianPerformance = async (req, res) => {
                     COUNT(*) as total_assigned,
                     COUNT(CASE WHEN status = 'aprobado' THEN 1 END) as total_resolved,
                     COUNT(CASE WHEN status = 'en_proceso' THEN 1 END) as currently_working,
-                    AVG(CASE 
-                        WHEN status = 'aprobado' 
-                        THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) 
-                        ELSE NULL 
-                    END) as avg_resolution_time_hours
-                FROM incidents 
-                WHERE assigned_to_id IS NOT NULL
-                GROUP BY assigned_to_id
+                    ROUND(AVG(
+                        CASE WHEN resolution_time.time_hours IS NOT NULL 
+                        THEN resolution_time.time_hours 
+                        ELSE NULL END
+                    ), 1) as avg_resolution_time_hours
+                FROM incidents i
+                LEFT JOIN (
+                    SELECT 
+                        assigned_hist.incident_id,
+                        TIMESTAMPDIFF(MINUTE, assigned_hist.timestamp, resolved_hist.timestamp) / 60.0 as time_hours
+                    FROM incident_history assigned_hist
+                    JOIN incident_history resolved_hist ON assigned_hist.incident_id = resolved_hist.incident_id
+                    WHERE assigned_hist.action = 'Asignación de técnico'
+                    AND resolved_hist.action = 'Marcado como resuelto'
+                    AND resolved_hist.timestamp > assigned_hist.timestamp
+                ) resolution_time ON i.id = resolution_time.incident_id
+                WHERE i.assigned_to_id IS NOT NULL
+                GROUP BY i.assigned_to_id
             ) incidents_stats ON u.id = incidents_stats.assigned_to_id
             LEFT JOIN (
                 SELECT 
