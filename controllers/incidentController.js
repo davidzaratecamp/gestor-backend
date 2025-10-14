@@ -725,6 +725,23 @@ exports.returnIncident = async (req, res) => {
     }
 };
 
+// @desc    Obtener incidencias devueltas para el usuario actual
+// @route   GET /api/incidents/returned
+// @access  Private (Coordinador/Supervisor/Admin)
+exports.getReturnedIncidents = async (req, res) => {
+    try {
+        const userRole = req.user.role;
+        const userSede = req.user.sede;
+        const userDepartamento = req.user.departamento;
+        
+        const incidents = await Incident.getReturnedIncidents(userRole, userSede, userDepartamento, req.user.id);
+        res.json(incidents);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
 // @desc    Obtener archivos adjuntos de una incidencia
 // @route   GET /api/incidents/:id/attachments
 // @access  Private

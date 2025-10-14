@@ -635,6 +635,57 @@ class Incident {
             throw error;
         }
     }
+
+    static async getReturnedIncidents(userRole, userSede, userDepartamento, userId) {
+        try {
+            let query = `
+                SELECT 
+                    i.id,
+                    i.failure_type,
+                    i.description,
+                    i.status,
+                    i.created_at,
+                    i.updated_at,
+                    i.return_reason,
+                    i.returned_at,
+                    i.return_count,
+                    w.station_code,
+                    w.location_details,
+                    w.sede,
+                    w.departamento,
+                    w.anydesk_address,
+                    w.advisor_cedula,
+                    reporter.full_name AS reported_by_name,
+                    returned_by.full_name AS returned_by_name
+                FROM incidents i
+                JOIN workstations w ON i.workstation_id = w.id
+                JOIN users reporter ON i.reported_by_id = reporter.id
+                LEFT JOIN users returned_by ON i.returned_by_id = returned_by.id
+                WHERE i.status = 'devuelto'
+            `;
+            
+            const params = [];
+            
+            // Aplicar filtros según el rol y permisos del usuario
+            if (userRole === 'admin') {
+                // Admin ve todas las incidencias devueltas
+            } else if (userRole === 'coordinador' || userRole === 'jefe_operaciones' || userRole === 'supervisor' || userRole === 'administrativo') {
+                // Solo ver incidencias devueltas que ellos crearon
+                query += ' AND i.reported_by_id = ?';
+                params.push(userId);
+            } else {
+                // Otros roles no deberían ver incidencias devueltas
+                return [];
+            }
+            
+            query += ' ORDER BY i.returned_at DESC';
+            
+            const [rows] = await db.query(query, params);
+            return rows;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 module.exports = Incident;

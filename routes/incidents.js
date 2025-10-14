@@ -7,6 +7,7 @@ const {
     getPendingIncidents,
     getIncidentsInSupervision,
     getApprovedIncidents,
+    getReturnedIncidents,
     getIncidentById,
     getIncidentHistory,
     createIncident,
@@ -55,6 +56,7 @@ router.get('/my-incidents', isTechnician, getMyIncidents);
 router.get('/pending', verifyRole(['admin', 'technician', 'jefe_operaciones', 'administrativo']), getPendingIncidents);
 router.get('/supervision', canViewIncidents, getIncidentsInSupervision);
 router.get('/approved', getApprovedIncidents);
+router.get('/returned', verifyRole(['admin', 'coordinador', 'jefe_operaciones', 'supervisor', 'administrativo']), getReturnedIncidents);
 
 // Rutas de estadísticas (solo para admin)
 router.get('/stats/by-sede', verifyRole(['admin']), getStatsBySede);
