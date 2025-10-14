@@ -224,7 +224,7 @@ exports.getTechnicianPerformance = async (req, res) => {
                 u.full_name,
                 COALESCE(u.sede, '') as sede,
                 COALESCE(u.departamento, '') as departamento,
-                COUNT(i.id) as total_assigned,
+                COUNT(CASE WHEN i.assigned_to_id IS NOT NULL THEN 1 END) as total_assigned,
                 COUNT(CASE WHEN i.status = 'aprobado' THEN 1 END) as total_resolved,
                 COUNT(CASE WHEN i.status = 'en_proceso' THEN 1 END) as currently_working,
                 COALESCE(AVG(CASE 
@@ -233,10 +233,12 @@ exports.getTechnicianPerformance = async (req, res) => {
                     ELSE NULL 
                 END), 0) as avg_resolution_time_hours,
                 COALESCE(AVG(tr.rating), 0) as avg_rating,
-                COUNT(tr.rating) as total_ratings
+                COUNT(DISTINCT tr.id) as total_ratings
             FROM users u
-            LEFT JOIN incidents i ON u.id = i.assigned_to_id
-            LEFT JOIN technician_ratings tr ON u.id = tr.technician_id
+            LEFT JOIN incidents i ON u.id = i.assigned_to_id 
+                AND i.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            LEFT JOIN technician_ratings tr ON u.id = tr.technician_id 
+                AND tr.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             WHERE u.role = 'technician'
             GROUP BY u.id, u.full_name, u.sede, u.departamento
             ORDER BY total_resolved DESC, avg_rating DESC
