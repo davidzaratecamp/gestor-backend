@@ -10,6 +10,7 @@
     "setup-barranquilla": "node scripts/setupBarranquillaFeatures.js",
     "create-jefes-test": "node scripts/createJefeOperacionesTest.js",
     "test-jefe-flow": "node scripts/testJefeOperacionesFlow.js",
+    "create-gestor-activos": "node scripts/createGestorActivosUser.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

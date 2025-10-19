@@ -90,10 +90,10 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ msg: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones o administrativo' 
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo o gestorActivos' 
         });
     }
 
@@ -136,13 +136,21 @@ exports.createUser = async (req, res) => {
             username,
             password,
             full_name,
-            role,
-            sede: sede || 'bogota'
+            role
         };
         
-        // Solo agregar departamento si no es técnico ni administrativo
-        if (role !== 'technician' && role !== 'administrativo') {
-            userData.departamento = departamento || 'claro';
+        // Para gestorActivos, no asignar sede ni departamento
+        if (role === 'gestorActivos') {
+            userData.sede = null;
+            userData.departamento = null;
+        } else {
+            // Para otros roles, asignar sede y departamento normalmente
+            userData.sede = sede || 'bogota';
+            
+            // Solo agregar departamento si no es técnico ni administrativo
+            if (role !== 'technician' && role !== 'administrativo') {
+                userData.departamento = departamento || 'claro';
+            }
         }
 
         const newUser = await User.create(userData);
@@ -172,10 +180,10 @@ exports.updateUser = async (req, res) => {
         });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones o administrativo' 
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo o gestorActivos' 
         });
     }
 
@@ -225,13 +233,21 @@ exports.updateUser = async (req, res) => {
         const updateData = {
             username,
             full_name,
-            role,
-            sede: sede || userExists.sede || 'bogota'
+            role
         };
         
-        // Solo agregar departamento si no es técnico ni administrativo
-        if (role !== 'technician' && role !== 'administrativo') {
-            updateData.departamento = departamento || userExists.departamento || 'claro';
+        // Para gestorActivos, no asignar sede ni departamento
+        if (role === 'gestorActivos') {
+            updateData.sede = null;
+            updateData.departamento = null;
+        } else {
+            // Para otros roles, asignar sede y departamento normalmente
+            updateData.sede = sede || userExists.sede || 'bogota';
+            
+            // Solo agregar departamento si no es técnico ni administrativo
+            if (role !== 'technician' && role !== 'administrativo') {
+                updateData.departamento = departamento || userExists.departamento || 'claro';
+            }
         }
 
         let updated;
