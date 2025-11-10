@@ -1408,3 +1408,71 @@ exports.correctIncident = async (req, res) => {
         res.status(500).json({ msg: err.message });
     }
 };
+
+// @desc    Obtener incidencias creadas por el usuario actual
+// @route   GET /api/incidents/my-reports
+// @access  Private (coordinadores, supervisores, administrativos, jefes)
+exports.getMyReports = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const [incidents] = await db.query(`
+            SELECT 
+                i.id,
+                i.status,
+                i.failure_type,
+                i.description,
+                i.created_at,
+                i.updated_at,
+                i.assigned_to_id,
+                i.anydesk_address,
+                i.advisor_cedula,
+                i.puesto_numero,
+                i.return_reason,
+                i.return_count,
+                i.returned_at,
+                w.station_code,
+                w.sede,
+                w.departamento,
+                w.location_details,
+                tech.full_name as technician_name,
+                returned_by.full_name as returned_by_name
+            FROM incidents i
+            JOIN workstations w ON i.workstation_id = w.id
+            LEFT JOIN users tech ON i.assigned_to_id = tech.id
+            LEFT JOIN users returned_by ON i.returned_by_id = returned_by.id
+            WHERE i.reported_by_id = ?
+            ORDER BY 
+                CASE 
+                    WHEN i.status = 'devuelto' THEN 1
+                    WHEN i.status = 'en_supervision' THEN 2
+                    WHEN i.status = 'en_proceso' THEN 3
+                    WHEN i.status = 'pendiente' THEN 4
+                    ELSE 5
+                END,
+                i.updated_at DESC
+        `, [userId]);
+
+        // Agregar estadísticas del usuario
+        const [stats] = await db.query(`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN status = 'pendiente' THEN 1 END) as pendiente,
+                COUNT(CASE WHEN status = 'en_proceso' THEN 1 END) as en_proceso,
+                COUNT(CASE WHEN status = 'en_supervision' THEN 1 END) as en_supervision,
+                COUNT(CASE WHEN status = 'aprobado' THEN 1 END) as aprobado,
+                COUNT(CASE WHEN status = 'rechazado' THEN 1 END) as rechazado,
+                COUNT(CASE WHEN status = 'devuelto' THEN 1 END) as devuelto
+            FROM incidents 
+            WHERE reported_by_id = ?
+        `, [userId]);
+
+        res.json({
+            incidents,
+            stats: stats[0]
+        });
+    } catch (err) {
+        console.error('Error obteniendo reportes del usuario:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};

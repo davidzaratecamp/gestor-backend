@@ -27,6 +27,7 @@ const {
     rejectIncident,
     returnIncident,
     correctIncident,
+    getMyReports,
     sendApprovalAlerts,
     getMyAlerts,
     markAlertAsRead,
@@ -87,6 +88,9 @@ router.put('/alerts/:id/dismiss', dismissAlert);
 // Rutas de calificaciones
 router.get('/my-ratings', isTechnician, getMyRatings);
 router.get('/ratings/:technicianId', canViewIncidents, getTechnicianRatings);
+
+// Obtener mis casos reportados (coordinadores, supervisores, administrativos, jefes)
+router.get('/my-reports', verifyToken, getMyReports);
 
 // Ruta general (filtrable por query params)
 router.get('/', getAllIncidents);
