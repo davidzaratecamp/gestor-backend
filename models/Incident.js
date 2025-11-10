@@ -357,6 +357,88 @@ class Incident {
         }
     }
 
+    static async correctAndResubmit(incidentId, creatorId, corrections) {
+        const connection = await db.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+            
+            // Verificar que el usuario sea el creador y la incidencia esté devuelta
+            const [currentIncident] = await connection.query(`
+                SELECT * FROM incidents 
+                WHERE id = ? AND reported_by_id = ? AND status = 'devuelto'
+            `, [incidentId, creatorId]);
+            
+            if (currentIncident.length === 0) {
+                throw new Error('No puedes corregir esta incidencia. Verifica que seas el creador y que esté devuelta.');
+            }
+
+            // Preparar campos para actualizar
+            let updateFields = [];
+            let updateValues = [];
+
+            if (corrections.description !== undefined) {
+                updateFields.push('description = ?');
+                updateValues.push(corrections.description);
+            }
+
+            if (corrections.anydesk_address !== undefined) {
+                updateFields.push('anydesk_address = ?');
+                updateValues.push(corrections.anydesk_address);
+            }
+
+            if (corrections.advisor_cedula !== undefined) {
+                updateFields.push('advisor_cedula = ?');
+                updateValues.push(corrections.advisor_cedula);
+            }
+
+            if (corrections.puesto_numero !== undefined) {
+                updateFields.push('puesto_numero = ?');
+                updateValues.push(corrections.puesto_numero);
+            }
+
+            if (corrections.failure_type !== undefined) {
+                updateFields.push('failure_type = ?');
+                updateValues.push(corrections.failure_type);
+            }
+
+            // Campos obligatorios para resetear el estado
+            updateFields.push('status = ?', 'returned_by_id = ?', 'return_reason = ?', 'returned_at = ?', 'updated_at = CURRENT_TIMESTAMP');
+            updateValues.push('pendiente', null, null, null);
+            updateValues.push(incidentId);
+
+            // Actualizar la incidencia con las correcciones
+            const [result] = await connection.query(`
+                UPDATE incidents 
+                SET ${updateFields.join(', ')}
+                WHERE id = ?
+            `, updateValues);
+
+            if (result.affectedRows === 0) {
+                throw new Error('No se pudo actualizar la incidencia');
+            }
+            
+            // Registrar en el historial
+            const correctionDetails = Object.keys(corrections)
+                .filter(key => corrections[key] !== undefined)
+                .map(key => `${key}: ${corrections[key]}`)
+                .join(', ');
+
+            await connection.query(`
+                INSERT INTO incident_history (incident_id, user_id, action, details)
+                VALUES (?, ?, 'Corregido y reenviado', ?)
+            `, [incidentId, creatorId, `Correcciones aplicadas: ${correctionDetails}`]);
+            
+            await connection.commit();
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
     static async getHistory(incidentId) {
         try {
             const [rows] = await db.query(`

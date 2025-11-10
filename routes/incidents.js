@@ -26,6 +26,7 @@ const {
     approveIncident,
     rejectIncident,
     returnIncident,
+    correctIncident,
     sendApprovalAlerts,
     getMyAlerts,
     markAlertAsRead,
@@ -112,6 +113,9 @@ router.put('/:id/resolve', isTechnician, markAsResolved);
 
 // Devolver incidencia al creador (técnico)
 router.put('/:id/return', isTechnician, returnIncident);
+
+// Corregir incidencia devuelta (solo el creador)
+router.put('/:id/correct', verifyToken, correctIncident);
 
 // Aprobar/rechazar incidencia (supervisor, coordinador, administrativo o admin)
 router.put('/:id/approve', canSuperviseIncidents, approveIncident);

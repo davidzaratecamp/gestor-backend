@@ -1375,3 +1375,36 @@ exports.dismissAlert = async (req, res) => {
         res.status(500).send('Error del servidor');
     }
 };
+
+// @desc    Corregir y reenviar incidencia devuelta
+// @route   PUT /api/incidents/:id/correct
+// @access  Private (solo el creador de la incidencia)
+exports.correctIncident = async (req, res) => {
+    const { description, anydesk_address, advisor_cedula, puesto_numero, failure_type } = req.body;
+
+    try {
+        const corrections = {};
+        
+        // Solo incluir campos que fueron proporcionados
+        if (description !== undefined) corrections.description = description;
+        if (anydesk_address !== undefined) corrections.anydesk_address = anydesk_address;
+        if (advisor_cedula !== undefined) corrections.advisor_cedula = advisor_cedula;
+        if (puesto_numero !== undefined) corrections.puesto_numero = puesto_numero;
+        if (failure_type !== undefined) corrections.failure_type = failure_type;
+
+        // Validar que al menos una corrección fue proporcionada
+        if (Object.keys(corrections).length === 0) {
+            return res.status(400).json({ msg: 'Debes proporcionar al menos una corrección' });
+        }
+
+        await Incident.correctAndResubmit(req.params.id, req.user.id, corrections);
+
+        res.json({
+            msg: 'Incidencia corregida y reenviada exitosamente. Ahora está disponible para asignación.',
+            corrections_applied: Object.keys(corrections)
+        });
+    } catch (err) {
+        console.error('Error corrigiendo incidencia:', err.message);
+        res.status(500).json({ msg: err.message });
+    }
+};
