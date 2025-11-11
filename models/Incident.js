@@ -324,6 +324,7 @@ class Incident {
             const newReturnCount = (incident.return_count || 0) + 1;
 
             // Actualizar incidencia: cambiar estado a 'devuelto' y registrar devolución
+            // IMPORTANTE: Mantener assigned_to_id para que el mismo técnico continúe después de la corrección
             const [result] = await connection.query(`
                 UPDATE incidents
                 SET
@@ -403,8 +404,9 @@ class Incident {
             }
 
             // Campos obligatorios para resetear el estado
+            // IMPORTANTE: Volver a 'en_proceso' para que continúe con el mismo técnico
             updateFields.push('status = ?', 'returned_by_id = ?', 'return_reason = ?', 'returned_at = ?', 'updated_at = CURRENT_TIMESTAMP');
-            updateValues.push('pendiente', null, null, null);
+            updateValues.push('en_proceso', null, null, null);
             updateValues.push(incidentId);
 
             // Actualizar la incidencia con las correcciones
@@ -427,7 +429,7 @@ class Incident {
             await connection.query(`
                 INSERT INTO incident_history (incident_id, user_id, action, details)
                 VALUES (?, ?, 'Corregido y reenviado', ?)
-            `, [incidentId, creatorId, `Correcciones aplicadas: ${correctionDetails}`]);
+            `, [incidentId, creatorId, `Correcciones aplicadas: ${correctionDetails}. Devuelto al técnico asignado para continuar.`]);
             
             await connection.commit();
             return true;

@@ -1400,7 +1400,7 @@ exports.correctIncident = async (req, res) => {
         await Incident.correctAndResubmit(req.params.id, req.user.id, corrections);
 
         res.json({
-            msg: 'Incidencia corregida y reenviada exitosamente. Ahora está disponible para asignación.',
+            msg: 'Incidencia corregida y reenviada exitosamente. El técnico asignado puede continuar trabajando en ella.',
             corrections_applied: Object.keys(corrections)
         });
     } catch (err) {
