@@ -71,6 +71,14 @@ const activoController = {
                 });
             }
 
+            // Validar valor si se proporciona
+            if (activoData.valor && (isNaN(activoData.valor) || parseFloat(activoData.valor) < 0)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El valor del activo debe ser un número positivo' 
+                });
+            }
+
             // Validar ubicaciones permitidas
             const ubicacionesPermitidas = ['Claro', 'Obama', 'IT', 'Contratación', 'Reclutamiento', 'Selección', 'Finanzas'];
             if (!ubicacionesPermitidas.includes(activoData.ubicacion)) {
@@ -147,6 +155,14 @@ const activoController = {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'El centro de costes debe ser un número entre 1 y 10' 
+                });
+            }
+
+            // Validar valor si se proporciona
+            if (activoData.valor && (isNaN(activoData.valor) || parseFloat(activoData.valor) < 0)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El valor del activo debe ser un número positivo' 
                 });
             }
 

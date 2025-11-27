@@ -41,6 +41,7 @@ class Activo {
                 ubicacion,
                 responsable,
                 proveedor,
+                valor,
                 fecha_compra,
                 numero_social,
                 poliza,
@@ -66,13 +67,13 @@ class Activo {
             const [result] = await db.query(`
                 INSERT INTO activos (
                     numero_placa, centro_costes, ubicacion, empresa, responsable,
-                    proveedor, fecha_compra, numero_social, poliza, aseguradora,
+                    proveedor, valor, fecha_compra, numero_social, poliza, aseguradora,
                     garantia, fecha_vencimiento_garantia, orden_compra, clasificacion,
                     clasificacion_activo_fijo, adjunto_archivo, created_by_id
-                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 numero_placa, centro_costes, ubicacion, responsable,
-                proveedor, fecha_compra, numero_social, poliza, aseguradora,
+                proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, clasificacion,
                 clasificacion_activo_fijo, adjunto_archivo, createdById
             ]);
@@ -91,6 +92,7 @@ class Activo {
                 ubicacion,
                 responsable,
                 proveedor,
+                valor,
                 fecha_compra,
                 numero_social,
                 poliza,
@@ -116,14 +118,14 @@ class Activo {
             const [result] = await db.query(`
                 UPDATE activos SET
                     numero_placa = ?, centro_costes = ?, ubicacion = ?, responsable = ?,
-                    proveedor = ?, fecha_compra = ?, numero_social = ?, poliza = ?, 
+                    proveedor = ?, valor = ?, fecha_compra = ?, numero_social = ?, poliza = ?, 
                     aseguradora = ?, garantia = ?, fecha_vencimiento_garantia = ?, 
                     orden_compra = ?, clasificacion = ?, clasificacion_activo_fijo = ?,
                     adjunto_archivo = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `, [
                 numero_placa, centro_costes, ubicacion, responsable,
-                proveedor, fecha_compra, numero_social, poliza, aseguradora,
+                proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, 
                 clasificacion, clasificacion_activo_fijo, adjunto_archivo, id
             ]);
@@ -207,12 +209,16 @@ class Activo {
             const [productivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo productivo"');
             const [noProductivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo no productivo"');
             const [conGarantiaRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE garantia = "Si"');
+            const [valorTotalRows] = await db.query('SELECT COALESCE(SUM(valor), 0) as valor_total FROM activos WHERE valor IS NOT NULL');
+            const [valorPromedioRows] = await db.query('SELECT COALESCE(AVG(valor), 0) as valor_promedio FROM activos WHERE valor IS NOT NULL');
 
             return {
                 total: totalRows[0].total,
                 activos_productivos: productivoRows[0].total,
                 activos_no_productivos: noProductivoRows[0].total,
-                con_garantia: conGarantiaRows[0].total
+                con_garantia: conGarantiaRows[0].total,
+                valor_total: parseFloat(valorTotalRows[0].valor_total),
+                valor_promedio: parseFloat(valorPromedioRows[0].valor_promedio)
             };
         } catch (error) {
             throw error;
