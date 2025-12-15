@@ -57,10 +57,10 @@ const activoController = {
             const createdById = req.user.id;
 
             // Validaciones básicas
-            if (!activoData.numero_placa || !activoData.ubicacion || !activoData.responsable || !activoData.clasificacion) {
+            if (!activoData.numero_placa || !activoData.ubicacion || !activoData.site || !activoData.responsable || !activoData.clasificacion) {
                 return res.status(400).json({ 
                     success: false, 
-                    message: 'Los campos número de placa, ubicación, responsable y clasificación son obligatorios' 
+                    message: 'Los campos número de placa, ubicación, site, responsable y clasificación son obligatorios' 
                 });
             }
 
@@ -144,10 +144,10 @@ const activoController = {
             }
 
             // Validaciones básicas
-            if (!activoData.numero_placa || !activoData.ubicacion || !activoData.responsable || !activoData.clasificacion) {
+            if (!activoData.numero_placa || !activoData.ubicacion || !activoData.site || !activoData.responsable || !activoData.clasificacion) {
                 return res.status(400).json({ 
                     success: false, 
-                    message: 'Los campos número de placa, ubicación, responsable y clasificación son obligatorios' 
+                    message: 'Los campos número de placa, ubicación, site, responsable y clasificación son obligatorios' 
                 });
             }
 

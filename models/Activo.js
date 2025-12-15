@@ -51,7 +51,18 @@ class Activo {
                 orden_compra,
                 clasificacion,
                 clasificacion_activo_fijo,
-                adjunto_archivo
+                adjunto_archivo,
+                // Campo Site
+                site,
+                // Nuevos campos dinámicos
+                marca_modelo,
+                numero_serie_fabricante,
+                cpu_procesador,
+                memoria_ram,
+                almacenamiento,
+                sistema_operativo,
+                pulgadas,
+                estado
             } = activoData;
 
             // Validar que si garantia es 'Si', debe tener fecha_vencimiento_garantia
@@ -64,18 +75,45 @@ class Activo {
                 throw new Error('No debe especificar fecha de vencimiento de garantía cuando la garantía es "No"');
             }
 
+            // Determinar tipo de activo automáticamente
+            // Patrón esperado: ECC-CPU-001, ECC-SER-002, ECC-MON-001, etc.
+            let tipo_activo = 'OTHER';
+            if (numero_placa) {
+                const placa = numero_placa.toUpperCase();
+                
+                // Detectar patrones completos con guión y consecutivo
+                if (placa.match(/^ECC-CPU-\d+$/)) tipo_activo = 'ECC-CPU';
+                else if (placa.match(/^ECC-SER-\d+$/)) tipo_activo = 'ECC-SER';
+                else if (placa.match(/^ECC-MON-\d+$/)) tipo_activo = 'ECC-MON';
+                else if (placa.match(/^ECC-IMP-\d+$/)) tipo_activo = 'ECC-IMP';
+                else if (placa.match(/^ECC-POR-\d+$/)) tipo_activo = 'ECC-POR';
+                else if (placa.match(/^ECC-TV-\d+$/)) tipo_activo = 'ECC-TV';
+                // También detectar prefijos mientras se escribe
+                else if (placa.startsWith('ECC-CPU')) tipo_activo = 'ECC-CPU';
+                else if (placa.startsWith('ECC-SER')) tipo_activo = 'ECC-SER';
+                else if (placa.startsWith('ECC-MON')) tipo_activo = 'ECC-MON';
+                else if (placa.startsWith('ECC-IMP')) tipo_activo = 'ECC-IMP';
+                else if (placa.startsWith('ECC-POR')) tipo_activo = 'ECC-POR';
+                else if (placa.startsWith('ECC-TV')) tipo_activo = 'ECC-TV';
+            }
+
             const [result] = await db.query(`
                 INSERT INTO activos (
                     numero_placa, centro_costes, ubicacion, empresa, responsable,
                     proveedor, valor, fecha_compra, numero_social, poliza, aseguradora,
                     garantia, fecha_vencimiento_garantia, orden_compra, clasificacion,
-                    clasificacion_activo_fijo, adjunto_archivo, created_by_id
-                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    clasificacion_activo_fijo, adjunto_archivo, created_by_id, tipo_activo,
+                    site, marca_modelo, numero_serie_fabricante, cpu_procesador, memoria_ram,
+                    almacenamiento, sistema_operativo, pulgadas, estado
+                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 numero_placa, centro_costes, ubicacion, responsable,
                 proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, clasificacion,
-                clasificacion_activo_fijo, adjunto_archivo, createdById
+                clasificacion_activo_fijo, adjunto_archivo, createdById, tipo_activo,
+                site || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null, 
+                memoria_ram || null, almacenamiento || null, sistema_operativo || null, 
+                pulgadas || null, estado || 'funcional'
             ]);
 
             return { id: result.insertId, ...activoData };
@@ -102,7 +140,18 @@ class Activo {
                 orden_compra,
                 clasificacion,
                 clasificacion_activo_fijo,
-                adjunto_archivo
+                adjunto_archivo,
+                // Campo Site
+                site,
+                // Nuevos campos dinámicos
+                marca_modelo,
+                numero_serie_fabricante,
+                cpu_procesador,
+                memoria_ram,
+                almacenamiento,
+                sistema_operativo,
+                pulgadas,
+                estado
             } = activoData;
 
             // Validar que si garantia es 'Si', debe tener fecha_vencimiento_garantia
@@ -115,19 +164,46 @@ class Activo {
                 throw new Error('No debe especificar fecha de vencimiento de garantía cuando la garantía es "No"');
             }
 
+            // Determinar tipo de activo automáticamente si cambió el número de placa
+            // Patrón esperado: ECC-CPU-001, ECC-SER-002, ECC-MON-001, etc.
+            let tipo_activo = 'OTHER';
+            if (numero_placa) {
+                const placa = numero_placa.toUpperCase();
+                
+                // Detectar patrones completos con guión y consecutivo
+                if (placa.match(/^ECC-CPU-\d+$/)) tipo_activo = 'ECC-CPU';
+                else if (placa.match(/^ECC-SER-\d+$/)) tipo_activo = 'ECC-SER';
+                else if (placa.match(/^ECC-MON-\d+$/)) tipo_activo = 'ECC-MON';
+                else if (placa.match(/^ECC-IMP-\d+$/)) tipo_activo = 'ECC-IMP';
+                else if (placa.match(/^ECC-POR-\d+$/)) tipo_activo = 'ECC-POR';
+                else if (placa.match(/^ECC-TV-\d+$/)) tipo_activo = 'ECC-TV';
+                // También detectar prefijos mientras se escribe
+                else if (placa.startsWith('ECC-CPU')) tipo_activo = 'ECC-CPU';
+                else if (placa.startsWith('ECC-SER')) tipo_activo = 'ECC-SER';
+                else if (placa.startsWith('ECC-MON')) tipo_activo = 'ECC-MON';
+                else if (placa.startsWith('ECC-IMP')) tipo_activo = 'ECC-IMP';
+                else if (placa.startsWith('ECC-POR')) tipo_activo = 'ECC-POR';
+                else if (placa.startsWith('ECC-TV')) tipo_activo = 'ECC-TV';
+            }
+
             const [result] = await db.query(`
                 UPDATE activos SET
                     numero_placa = ?, centro_costes = ?, ubicacion = ?, responsable = ?,
                     proveedor = ?, valor = ?, fecha_compra = ?, numero_social = ?, poliza = ?, 
                     aseguradora = ?, garantia = ?, fecha_vencimiento_garantia = ?, 
                     orden_compra = ?, clasificacion = ?, clasificacion_activo_fijo = ?,
-                    adjunto_archivo = ?, updated_at = CURRENT_TIMESTAMP
+                    adjunto_archivo = ?, tipo_activo = ?, site = ?, marca_modelo = ?, numero_serie_fabricante = ?,
+                    cpu_procesador = ?, memoria_ram = ?, almacenamiento = ?, sistema_operativo = ?,
+                    pulgadas = ?, estado = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `, [
                 numero_placa, centro_costes, ubicacion, responsable,
                 proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, 
-                clasificacion, clasificacion_activo_fijo, adjunto_archivo, id
+                clasificacion, clasificacion_activo_fijo, adjunto_archivo, tipo_activo,
+                site || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null,
+                memoria_ram || null, almacenamiento || null, sistema_operativo || null,
+                pulgadas || null, estado || 'funcional', id
             ]);
 
             return result.affectedRows > 0;
@@ -193,10 +269,12 @@ class Activo {
 
     static async getResponsables() {
         try {
-            // Por ahora retorna valores fijos, después se puede hacer dinámico
             return [
-                'David López'
-                // Se pueden agregar más responsables aquí
+                'David Acero',
+                'Santiago',
+                'Ángela',
+                'David Lopez',
+                'Giovanny Ospina'
             ];
         } catch (error) {
             throw error;
