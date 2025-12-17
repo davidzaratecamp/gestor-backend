@@ -76,25 +76,25 @@ class Activo {
             }
 
             // Determinar tipo de activo automáticamente
-            // Patrón esperado: ECC-CPU-001, ECC-SER-002, ECC-MON-001, etc.
+            // Patrón esperado: ECC-CPU-001 o ECC'CPU'001 (pistola códigos lee guión como comilla)
             let tipo_activo = 'OTHER';
             if (numero_placa) {
                 const placa = numero_placa.toUpperCase();
                 
-                // Detectar patrones completos con guión y consecutivo
-                if (placa.match(/^ECC-CPU-\d+$/)) tipo_activo = 'ECC-CPU';
-                else if (placa.match(/^ECC-SER-\d+$/)) tipo_activo = 'ECC-SER';
-                else if (placa.match(/^ECC-MON-\d+$/)) tipo_activo = 'ECC-MON';
-                else if (placa.match(/^ECC-IMP-\d+$/)) tipo_activo = 'ECC-IMP';
-                else if (placa.match(/^ECC-POR-\d+$/)) tipo_activo = 'ECC-POR';
-                else if (placa.match(/^ECC-TV-\d+$/)) tipo_activo = 'ECC-TV';
+                // Detectar patrones completos con guión o comilla simple y consecutivo
+                if (placa.match(/^ECC[-']CPU[-']\d+$/)) tipo_activo = 'ECC-CPU';
+                else if (placa.match(/^ECC[-']SER[-']\d+$/)) tipo_activo = 'ECC-SER';
+                else if (placa.match(/^ECC[-']MON[-']\d+$/)) tipo_activo = 'ECC-MON';
+                else if (placa.match(/^ECC[-']IMP[-']\d+$/)) tipo_activo = 'ECC-IMP';
+                else if (placa.match(/^ECC[-']POR[-']\d+$/)) tipo_activo = 'ECC-POR';
+                else if (placa.match(/^ECC[-']TV[-']\d+$/)) tipo_activo = 'ECC-TV';
                 // También detectar prefijos mientras se escribe
-                else if (placa.startsWith('ECC-CPU')) tipo_activo = 'ECC-CPU';
-                else if (placa.startsWith('ECC-SER')) tipo_activo = 'ECC-SER';
-                else if (placa.startsWith('ECC-MON')) tipo_activo = 'ECC-MON';
-                else if (placa.startsWith('ECC-IMP')) tipo_activo = 'ECC-IMP';
-                else if (placa.startsWith('ECC-POR')) tipo_activo = 'ECC-POR';
-                else if (placa.startsWith('ECC-TV')) tipo_activo = 'ECC-TV';
+                else if (placa.startsWith('ECC-CPU') || placa.startsWith("ECC'CPU")) tipo_activo = 'ECC-CPU';
+                else if (placa.startsWith('ECC-SER') || placa.startsWith("ECC'SER")) tipo_activo = 'ECC-SER';
+                else if (placa.startsWith('ECC-MON') || placa.startsWith("ECC'MON")) tipo_activo = 'ECC-MON';
+                else if (placa.startsWith('ECC-IMP') || placa.startsWith("ECC'IMP")) tipo_activo = 'ECC-IMP';
+                else if (placa.startsWith('ECC-POR') || placa.startsWith("ECC'POR")) tipo_activo = 'ECC-POR';
+                else if (placa.startsWith('ECC-TV') || placa.startsWith("ECC'TV")) tipo_activo = 'ECC-TV';
             }
 
             const [result] = await db.query(`
@@ -165,25 +165,25 @@ class Activo {
             }
 
             // Determinar tipo de activo automáticamente si cambió el número de placa
-            // Patrón esperado: ECC-CPU-001, ECC-SER-002, ECC-MON-001, etc.
+            // Patrón esperado: ECC-CPU-001 o ECC'CPU'001 (pistola códigos lee guión como comilla)
             let tipo_activo = 'OTHER';
             if (numero_placa) {
                 const placa = numero_placa.toUpperCase();
                 
-                // Detectar patrones completos con guión y consecutivo
-                if (placa.match(/^ECC-CPU-\d+$/)) tipo_activo = 'ECC-CPU';
-                else if (placa.match(/^ECC-SER-\d+$/)) tipo_activo = 'ECC-SER';
-                else if (placa.match(/^ECC-MON-\d+$/)) tipo_activo = 'ECC-MON';
-                else if (placa.match(/^ECC-IMP-\d+$/)) tipo_activo = 'ECC-IMP';
-                else if (placa.match(/^ECC-POR-\d+$/)) tipo_activo = 'ECC-POR';
-                else if (placa.match(/^ECC-TV-\d+$/)) tipo_activo = 'ECC-TV';
+                // Detectar patrones completos con guión o comilla simple y consecutivo
+                if (placa.match(/^ECC[-']CPU[-']\d+$/)) tipo_activo = 'ECC-CPU';
+                else if (placa.match(/^ECC[-']SER[-']\d+$/)) tipo_activo = 'ECC-SER';
+                else if (placa.match(/^ECC[-']MON[-']\d+$/)) tipo_activo = 'ECC-MON';
+                else if (placa.match(/^ECC[-']IMP[-']\d+$/)) tipo_activo = 'ECC-IMP';
+                else if (placa.match(/^ECC[-']POR[-']\d+$/)) tipo_activo = 'ECC-POR';
+                else if (placa.match(/^ECC[-']TV[-']\d+$/)) tipo_activo = 'ECC-TV';
                 // También detectar prefijos mientras se escribe
-                else if (placa.startsWith('ECC-CPU')) tipo_activo = 'ECC-CPU';
-                else if (placa.startsWith('ECC-SER')) tipo_activo = 'ECC-SER';
-                else if (placa.startsWith('ECC-MON')) tipo_activo = 'ECC-MON';
-                else if (placa.startsWith('ECC-IMP')) tipo_activo = 'ECC-IMP';
-                else if (placa.startsWith('ECC-POR')) tipo_activo = 'ECC-POR';
-                else if (placa.startsWith('ECC-TV')) tipo_activo = 'ECC-TV';
+                else if (placa.startsWith('ECC-CPU') || placa.startsWith("ECC'CPU")) tipo_activo = 'ECC-CPU';
+                else if (placa.startsWith('ECC-SER') || placa.startsWith("ECC'SER")) tipo_activo = 'ECC-SER';
+                else if (placa.startsWith('ECC-MON') || placa.startsWith("ECC'MON")) tipo_activo = 'ECC-MON';
+                else if (placa.startsWith('ECC-IMP') || placa.startsWith("ECC'IMP")) tipo_activo = 'ECC-IMP';
+                else if (placa.startsWith('ECC-POR') || placa.startsWith("ECC'POR")) tipo_activo = 'ECC-POR';
+                else if (placa.startsWith('ECC-TV') || placa.startsWith("ECC'TV")) tipo_activo = 'ECC-TV';
             }
 
             const [result] = await db.query(`
