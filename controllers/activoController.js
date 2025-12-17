@@ -72,11 +72,16 @@ const activoController = {
             }
 
             // Validar valor si se proporciona
-            if (activoData.valor && (isNaN(activoData.valor) || parseFloat(activoData.valor) < 0)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'El valor del activo debe ser un número positivo' 
-                });
+            if (activoData.valor !== undefined && activoData.valor !== null && activoData.valor !== '') {
+                const valorNum = Number(activoData.valor);
+                if (isNaN(valorNum) || valorNum < 0) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: 'El valor del activo debe ser un número positivo' 
+                    });
+                }
+                // Actualizar el valor parseado
+                activoData.valor = valorNum;
             }
 
             // Validar ubicaciones permitidas
@@ -159,11 +164,16 @@ const activoController = {
             }
 
             // Validar valor si se proporciona
-            if (activoData.valor && (isNaN(activoData.valor) || parseFloat(activoData.valor) < 0)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'El valor del activo debe ser un número positivo' 
-                });
+            if (activoData.valor !== undefined && activoData.valor !== null && activoData.valor !== '') {
+                const valorNum = Number(activoData.valor);
+                if (isNaN(valorNum) || valorNum < 0) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: 'El valor del activo debe ser un número positivo' 
+                    });
+                }
+                // Actualizar el valor parseado
+                activoData.valor = valorNum;
             }
 
             // Manejar archivo adjunto si existe

@@ -48,6 +48,8 @@ app.use('/api/workstations', require('./routes/workstations'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/activos', require('./routes/activos'));
+app.use('/api/auto-activos', require('./routes/autoActivos'));
+app.use('/api/script-parser', require('./routes/scriptParser'));
 
 app.get('/', (req, res) => {
   res.send('API del Call Center Support está funcionando!');
