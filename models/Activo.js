@@ -287,8 +287,8 @@ class Activo {
             const [productivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo productivo"');
             const [noProductivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo no productivo"');
             const [conGarantiaRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE garantia = "Si"');
-            const [valorTotalRows] = await db.query('SELECT COALESCE(SUM(valor), 0) as valor_total FROM activos WHERE valor IS NOT NULL');
-            const [valorPromedioRows] = await db.query('SELECT COALESCE(AVG(valor), 0) as valor_promedio FROM activos WHERE valor IS NOT NULL');
+            const [valorTotalRows] = await db.query('SELECT COALESCE(SUM(valor), 0) as valor_total FROM activos WHERE valor IS NOT NULL AND valor > 0');
+            const [valorPromedioRows] = await db.query('SELECT COALESCE(ROUND(AVG(valor), 0), 0) as valor_promedio FROM activos WHERE valor IS NOT NULL AND valor > 0');
 
             return {
                 total: totalRows[0].total,
