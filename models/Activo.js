@@ -271,7 +271,7 @@ class Activo {
         try {
             return [
                 'David Acero',
-                'Santiago',
+                'Santiago Nuncira',
                 'Ángela',
                 'David Lopez',
                 'Giovanny Ospina'
@@ -287,7 +287,7 @@ class Activo {
             const [productivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo productivo"');
             const [noProductivoRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE clasificacion = "Activo no productivo"');
             const [conGarantiaRows] = await db.query('SELECT COUNT(*) as total FROM activos WHERE garantia = "Si"');
-            const [valorTotalRows] = await db.query('SELECT COALESCE(SUM(valor), 0) as valor_total FROM activos WHERE valor IS NOT NULL AND valor > 0');
+            const [valorTotalRows] = await db.query('SELECT COALESCE(ROUND(SUM(valor), 0), 0) as valor_total FROM activos WHERE valor IS NOT NULL AND valor > 0');
             const [valorPromedioRows] = await db.query('SELECT COALESCE(ROUND(AVG(valor), 0), 0) as valor_promedio FROM activos WHERE valor IS NOT NULL AND valor > 0');
 
             return {
@@ -295,8 +295,8 @@ class Activo {
                 activos_productivos: productivoRows[0].total,
                 activos_no_productivos: noProductivoRows[0].total,
                 con_garantia: conGarantiaRows[0].total,
-                valor_total: parseFloat(valorTotalRows[0].valor_total),
-                valor_promedio: parseFloat(valorPromedioRows[0].valor_promedio)
+                valor_total: parseInt(valorTotalRows[0].valor_total),
+                valor_promedio: parseInt(valorPromedioRows[0].valor_promedio)
             };
         } catch (error) {
             throw error;
