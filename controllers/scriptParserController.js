@@ -48,6 +48,7 @@ const scriptParserController = {
                     clasificacion_activo_fijo: '',
                     adjunto_archivo: null,
                     site: 'Site A',
+                    puesto: equipmentData.puesto,
                     // Campos técnicos extraídos
                     marca_modelo: equipmentData.marca_modelo,
                     numero_serie_fabricante: equipmentData.numero_serie_fabricante,
@@ -76,6 +77,7 @@ const scriptParserController = {
                     datos_extraidos: equipmentData,
                     activo_que_se_crearia: {
                         numero_placa: equipmentData.numero_placa,
+                        puesto: equipmentData.puesto,
                         marca_modelo: equipmentData.marca_modelo,
                         numero_serie_fabricante: equipmentData.numero_serie_fabricante,
                         cpu_procesador: equipmentData.cpu_procesador,
@@ -197,9 +199,19 @@ function parseEquipmentScript(scriptText, customEquipmentId = null) {
             storageInfo = `${diskBrand} ${diskType} ${diskSize}GB`;
         }
 
+        // Extraer número del puesto desde el nombre del equipo
+        let puestoNumber = '';
+        if (equipmentName) {
+            const numberMatch = equipmentName.match(/(\d+)/);
+            if (numberMatch) {
+                puestoNumber = numberMatch[1].padStart(3, '0'); // Pad con ceros para formato 001, 090, etc.
+            }
+        }
+
         // Construir datos estructurados
         const extractedData = {
             numero_placa: `ECC-CPU-${equipmentName}`,
+            puesto: puestoNumber,
             marca_modelo: `${manufacturer} ${model}`.trim(),
             numero_serie_fabricante: serial,
             cpu_procesador: processorInfo,

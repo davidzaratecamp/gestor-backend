@@ -64,6 +64,14 @@ const activoController = {
                 });
             }
 
+            // Validar puesto si se proporciona (opcional)
+            if (activoData.puesto && activoData.puesto.length > 50) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El puesto no puede exceder 50 caracteres' 
+                });
+            }
+
             if (!activoData.centro_costes || activoData.centro_costes < 1 || activoData.centro_costes > 10) {
                 return res.status(400).json({ 
                     success: false, 
@@ -153,6 +161,14 @@ const activoController = {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'Los campos número de placa, ubicación, site, responsable y clasificación son obligatorios' 
+                });
+            }
+
+            // Validar puesto si se proporciona (opcional)
+            if (activoData.puesto && activoData.puesto.length > 50) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El puesto no puede exceder 50 caracteres' 
                 });
             }
 
