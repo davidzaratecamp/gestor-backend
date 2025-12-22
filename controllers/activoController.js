@@ -141,6 +141,15 @@ const activoController = {
                 }
             }
 
+            // Manejar errores específicos
+            if (error.message.includes('ya existe en el sistema')) {
+                return res.status(409).json({ 
+                    success: false, 
+                    message: error.message,
+                    type: 'DUPLICATE_PLATE'
+                });
+            }
+
             res.status(500).json({ 
                 success: false, 
                 message: 'Error interno del servidor', 
@@ -245,6 +254,15 @@ const activoController = {
                 if (fs.existsSync(filePath)) {
                     fs.unlinkSync(filePath);
                 }
+            }
+
+            // Manejar errores específicos
+            if (error.message.includes('ya existe en el sistema')) {
+                return res.status(409).json({ 
+                    success: false, 
+                    message: error.message,
+                    type: 'DUPLICATE_PLATE'
+                });
             }
 
             res.status(500).json({ 

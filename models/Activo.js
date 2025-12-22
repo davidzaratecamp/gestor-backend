@@ -69,6 +69,12 @@ class Activo {
                 estado
             } = activoData;
 
+            // Validar que el número de placa no existe
+            const [existingActivo] = await db.query('SELECT id FROM activos WHERE numero_placa = ?', [numero_placa]);
+            if (existingActivo.length > 0) {
+                throw new Error(`El número de placa '${numero_placa}' ya existe en el sistema`);
+            }
+
             // Validar que si garantia es 'Si', debe tener fecha_vencimiento_garantia
             if (garantia === 'Si' && !fecha_vencimiento_garantia) {
                 throw new Error('La fecha de vencimiento de garantía es requerida cuando la garantía es "Sí"');
@@ -161,6 +167,12 @@ class Activo {
                 pulgadas,
                 estado
             } = activoData;
+
+            // Validar que el número de placa no existe en otro activo
+            const [existingActivo] = await db.query('SELECT id FROM activos WHERE numero_placa = ? AND id != ?', [numero_placa, id]);
+            if (existingActivo.length > 0) {
+                throw new Error(`El número de placa '${numero_placa}' ya existe en el sistema`);
+            }
 
             // Validar que si garantia es 'Si', debe tener fecha_vencimiento_garantia
             if (garantia === 'Si' && !fecha_vencimiento_garantia) {
