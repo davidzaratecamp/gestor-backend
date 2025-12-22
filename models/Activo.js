@@ -56,6 +56,8 @@ class Activo {
                 site,
                 // Campo Puesto
                 puesto,
+                // Campo Asignado
+                asignado,
                 // Nuevos campos dinámicos
                 marca_modelo,
                 numero_serie_fabricante,
@@ -105,15 +107,15 @@ class Activo {
                     proveedor, valor, fecha_compra, numero_social, poliza, aseguradora,
                     garantia, fecha_vencimiento_garantia, orden_compra, clasificacion,
                     clasificacion_activo_fijo, adjunto_archivo, created_by_id, tipo_activo,
-                    site, puesto, marca_modelo, numero_serie_fabricante, cpu_procesador, memoria_ram,
+                    site, puesto, asignado, marca_modelo, numero_serie_fabricante, cpu_procesador, memoria_ram,
                     almacenamiento, sistema_operativo, pulgadas, estado
-                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, 'Asiste', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
                 numero_placa, centro_costes, ubicacion, responsable,
                 proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, clasificacion,
                 clasificacion_activo_fijo, adjunto_archivo, createdById, tipo_activo,
-                site || null, puesto || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null, 
+                site || null, puesto || null, asignado || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null, 
                 memoria_ram || null, almacenamiento || null, sistema_operativo || null, 
                 pulgadas || null, estado || 'funcional'
             ]);
@@ -147,6 +149,8 @@ class Activo {
                 site,
                 // Campo Puesto
                 puesto,
+                // Campo Asignado
+                asignado,
                 // Nuevos campos dinámicos
                 marca_modelo,
                 numero_serie_fabricante,
@@ -196,7 +200,7 @@ class Activo {
                     proveedor = ?, valor = ?, fecha_compra = ?, numero_social = ?, poliza = ?, 
                     aseguradora = ?, garantia = ?, fecha_vencimiento_garantia = ?, 
                     orden_compra = ?, clasificacion = ?, clasificacion_activo_fijo = ?,
-                    adjunto_archivo = ?, tipo_activo = ?, site = ?, puesto = ?, marca_modelo = ?, numero_serie_fabricante = ?,
+                    adjunto_archivo = ?, tipo_activo = ?, site = ?, puesto = ?, asignado = ?, marca_modelo = ?, numero_serie_fabricante = ?,
                     cpu_procesador = ?, memoria_ram = ?, almacenamiento = ?, sistema_operativo = ?,
                     pulgadas = ?, estado = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -205,7 +209,7 @@ class Activo {
                 proveedor, valor || null, fecha_compra, numero_social, poliza, aseguradora,
                 garantia, fecha_vencimiento_garantia || null, orden_compra, 
                 clasificacion, clasificacion_activo_fijo, adjunto_archivo, tipo_activo,
-                site || null, puesto || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null,
+                site || null, puesto || null, asignado || null, marca_modelo || null, numero_serie_fabricante || null, cpu_procesador || null,
                 memoria_ram || null, almacenamiento || null, sistema_operativo || null,
                 pulgadas || null, estado || 'funcional', id
             ]);
@@ -250,6 +254,11 @@ class Activo {
             if (filters.responsable) {
                 query += ' AND a.responsable LIKE ?';
                 params.push(`%${filters.responsable}%`);
+            }
+
+            if (filters.asignado) {
+                query += ' AND a.asignado LIKE ?';
+                params.push(`%${filters.asignado}%`);
             }
 
             if (filters.clasificacion) {

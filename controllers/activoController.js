@@ -72,6 +72,14 @@ const activoController = {
                 });
             }
 
+            // Validar asignado si se proporciona (opcional)
+            if (activoData.asignado && activoData.asignado.length > 100) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El campo asignado no puede exceder 100 caracteres' 
+                });
+            }
+
             if (!activoData.centro_costes || activoData.centro_costes < 1 || activoData.centro_costes > 10) {
                 return res.status(400).json({ 
                     success: false, 
@@ -169,6 +177,14 @@ const activoController = {
                 return res.status(400).json({ 
                     success: false, 
                     message: 'El puesto no puede exceder 50 caracteres' 
+                });
+            }
+
+            // Validar asignado si se proporciona (opcional)
+            if (activoData.asignado && activoData.asignado.length > 100) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El campo asignado no puede exceder 100 caracteres' 
                 });
             }
 
