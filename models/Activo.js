@@ -254,8 +254,11 @@ class Activo {
             const params = [];
 
             if (filters.numero_placa) {
-                query += ' AND a.numero_placa LIKE ?';
+                // Normalizar búsqueda: convertir comillas a guiones para compatibilidad con pistola
+                const normalizedSearch = filters.numero_placa.replace(/'/g, '-');
+                query += ' AND (a.numero_placa LIKE ? OR a.numero_placa LIKE ?)';
                 params.push(`%${filters.numero_placa}%`);
+                params.push(`%${normalizedSearch}%`);
             }
 
             if (filters.ubicacion) {
@@ -295,11 +298,11 @@ class Activo {
     static async getResponsables() {
         try {
             return [
-                'David Acero',
-                'Santiago Nuncira',
-                'Ángela',
-                'David Lopez',
-                'Giovanny Ospina'
+                "ANGELA JEANNETH JIMENEZ C.C. 1026555251",
+                "NELSON DAVID ACERO CANTOR C.C. 80767085",
+                "ANDRES SANTIAGO NUNCIRA JIMENEZ C.C. 1014303558",
+                "GIOVANNY ALFREDO OSPINA CORREA",
+                "DAVID EDUARDO LOPEZ CUARTAS C.C. 1026583349"
             ];
         } catch (error) {
             throw error;
@@ -323,6 +326,24 @@ class Activo {
                 valor_total: parseInt(valorTotalRows[0].valor_total),
                 valor_promedio: parseInt(valorPromedioRows[0].valor_promedio)
             };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Método para buscar por número de placa con tolerancia a formatos
+    static async getByNumeroPlaca(numeroPlaca) {
+        try {
+            const normalizedSearch = numeroPlaca.replace(/'/g, '-');
+            const [rows] = await db.query(`
+                SELECT 
+                    a.*,
+                    u.full_name as created_by_name
+                FROM activos a
+                LEFT JOIN users u ON a.created_by_id = u.id
+                WHERE a.numero_placa = ? OR a.numero_placa = ?
+            `, [numeroPlaca, normalizedSearch]);
+            return rows[0];
         } catch (error) {
             throw error;
         }

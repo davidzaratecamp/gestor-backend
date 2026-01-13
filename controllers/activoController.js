@@ -101,7 +101,7 @@ const activoController = {
             }
 
             // Validar ubicaciones permitidas
-            const ubicacionesPermitidas = ['Claro', 'Obama', 'IT', 'Contratación', 'Reclutamiento', 'Selección', 'Finanzas'];
+            const ubicacionesPermitidas = ["Claro", "Obama", "IT", "Contratación", "Reclutamiento", "Selección", "Finanzas", "Majority"];
             if (!ubicacionesPermitidas.includes(activoData.ubicacion)) {
                 return res.status(400).json({ 
                     success: false, 
@@ -340,6 +340,30 @@ const activoController = {
             res.json({ stats });
         } catch (error) {
             console.error('Error al obtener estadísticas:', error);
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error interno del servidor', 
+                error: error.message 
+            });
+        }
+    },
+
+    // Buscar activo por número de placa (tolerante a formatos de pistola)
+    async getActivoByPlaca(req, res) {
+        try {
+            const { placa } = req.params;
+            const activo = await Activo.getByNumeroPlaca(placa);
+
+            if (!activo) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Activo no encontrado' 
+                });
+            }
+
+            res.json({ activo });
+        } catch (error) {
+            console.error('Error al obtener activo por placa:', error);
             res.status(500).json({ 
                 success: false, 
                 message: 'Error interno del servidor', 

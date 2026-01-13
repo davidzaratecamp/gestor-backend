@@ -30,6 +30,9 @@ router.get('/stats', activoController.getStats);
 // GET /api/activos/responsables - Obtener lista de responsables
 router.get('/responsables', activoController.getResponsables);
 
+// GET /api/activos/placa/:placa - Buscar activo por número de placa (tolerante a pistola)
+router.get('/placa/:placa', activoController.getActivoByPlaca);
+
 // GET /api/activos/:id - Obtener un activo específico
 router.get('/:id', activoController.getActivoById);
 
