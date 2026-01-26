@@ -90,10 +90,10 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ msg: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario'];
     if (!validRoles.includes(role)) {
-        return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo o gestorActivos' 
+        return res.status(400).json({
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos o tecnicoInventario'
         });
     }
 
@@ -139,8 +139,8 @@ exports.createUser = async (req, res) => {
             role
         };
         
-        // Para gestorActivos, no asignar sede ni departamento
-        if (role === 'gestorActivos') {
+        // Para gestorActivos y tecnicoInventario, no asignar sede ni departamento
+        if (role === 'gestorActivos' || role === 'tecnicoInventario') {
             userData.sede = null;
             userData.departamento = null;
         } else {
@@ -180,10 +180,10 @@ exports.updateUser = async (req, res) => {
         });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario'];
     if (!validRoles.includes(role)) {
-        return res.status(400).json({ 
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo o gestorActivos' 
+        return res.status(400).json({
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos o tecnicoInventario'
         });
     }
 
@@ -236,8 +236,8 @@ exports.updateUser = async (req, res) => {
             role
         };
         
-        // Para gestorActivos, no asignar sede ni departamento
-        if (role === 'gestorActivos') {
+        // Para gestorActivos y tecnicoInventario, no asignar sede ni departamento
+        if (role === 'gestorActivos' || role === 'tecnicoInventario') {
             updateData.sede = null;
             updateData.departamento = null;
         } else {

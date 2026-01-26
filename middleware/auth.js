@@ -47,9 +47,15 @@ const canCreateIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'je
 const canSuperviseIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'administrativo', 'jefe_operaciones']);
 const canViewIncidents = verifyRole(['admin', 'supervisor', 'coordinador', 'jefe_operaciones', 'administrativo']);
 
-// Mantener compatibilidad temporal con 'supervisor' 
+// Mantener compatibilidad temporal con 'supervisor'
 const isSupervisor = verifyRole(['supervisor', 'coordinador', 'admin']);
 const isAdminOrSupervisor = verifyRole(['admin', 'supervisor', 'coordinador']);
+
+// Middlewares para tecnicoInventario
+const isTecnicoInventario = verifyRole(['tecnicoInventario']);
+const canAccessAssets = verifyRole(['tecnicoInventario', 'gestorActivos', 'admin']);
+const canViewAssetHistory = verifyRole(['gestorActivos', 'admin']);
+const canEditHardwareComponents = verifyRole(['tecnicoInventario', 'gestorActivos', 'admin']);
 
 module.exports = {
     verifyToken,
@@ -66,5 +72,10 @@ module.exports = {
     canCreateIncidents,
     canSuperviseIncidents,
     canViewIncidents,
-    canCreateIncidentsWithFiles
+    canCreateIncidentsWithFiles,
+    // Middlewares para tecnicoInventario
+    isTecnicoInventario,
+    canAccessAssets,
+    canViewAssetHistory,
+    canEditHardwareComponents
 };
