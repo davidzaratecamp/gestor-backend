@@ -6,14 +6,15 @@ const db = require('../config/db');
 const TIPOS_EDITABLES = ['ECC-CPU', 'ECC-POR', 'ECC-SER'];
 
 // Campos de componentes que puede editar el técnico
-const CAMPOS_EDITABLES = ['cpu_procesador', 'memoria_ram', 'almacenamiento', 'sistema_operativo'];
+const CAMPOS_EDITABLES = ['cpu_procesador', 'memoria_ram', 'almacenamiento', 'sistema_operativo', 'clasificacion'];
 
 // Labels para mostrar nombres amigables
 const CAMPO_LABELS = {
     cpu_procesador: 'CPU / Procesador',
     memoria_ram: 'Memoria RAM',
     almacenamiento: 'Almacenamiento',
-    sistema_operativo: 'Sistema Operativo'
+    sistema_operativo: 'Sistema Operativo',
+    clasificacion: 'Clasificación'
 };
 
 /**
@@ -40,6 +41,7 @@ exports.getActivosEditables = async (req, res) => {
                 a.memoria_ram,
                 a.almacenamiento,
                 a.sistema_operativo,
+                a.clasificacion,
                 a.estado
             FROM activos a
             WHERE a.tipo_activo IN (?, ?, ?)
@@ -96,6 +98,7 @@ exports.getComponentesActivo = async (req, res) => {
                 memoria_ram,
                 almacenamiento,
                 sistema_operativo,
+                clasificacion,
                 marca_modelo,
                 ubicacion,
                 site,
