@@ -15,7 +15,8 @@ const CAMPO_LABELS = {
     memoria_ram: 'Memoria RAM',
     almacenamiento: 'Almacenamiento',
     sistema_operativo: 'Sistema Operativo',
-    clasificacion: 'Clasificación'
+    clasificacion: 'Clasificación',
+    estado: 'Estado'
 };
 
 /**
@@ -519,6 +520,107 @@ exports.getAllHistorial = async (req, res) => {
             success: false,
             msg: 'Error del servidor al obtener historial'
         });
+    }
+};
+
+/**
+ * @desc    Obtener activos clasificados como "Activo no productivo" (CPUs y Portátiles)
+ * @route   GET /api/activos-tecnico/no-productivos
+ * @access  Private (gestorActivos, admin)
+ */
+exports.getActivosNoProductivos = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                a.id,
+                a.numero_placa,
+                a.tipo_activo,
+                a.ubicacion,
+                a.marca_modelo,
+                a.estado,
+                h.modificado_por_id,
+                u.full_name AS clasificado_por_nombre,
+                u.username AS clasificado_por_usuario,
+                h.fecha_modificacion AS fecha_clasificacion
+            FROM activos a
+            LEFT JOIN (
+                SELECT ah1.*
+                FROM activos_historial ah1
+                INNER JOIN (
+                    SELECT activo_id, MAX(id) AS max_id
+                    FROM activos_historial
+                    WHERE campo_modificado = 'clasificacion'
+                      AND valor_nuevo = 'Activo no productivo'
+                    GROUP BY activo_id
+                ) ah2 ON ah1.id = ah2.max_id
+            ) h ON a.id = h.activo_id
+            LEFT JOIN users u ON h.modificado_por_id = u.id
+            WHERE a.clasificacion = 'Activo no productivo'
+              AND a.tipo_activo IN ('ECC-CPU', 'ECC-POR')
+            ORDER BY a.numero_placa ASC
+        `);
+
+        res.json({
+            success: true,
+            data: rows.map(r => ({
+                id: r.id,
+                numeroPlaca: r.numero_placa,
+                tipoActivo: r.tipo_activo,
+                ubicacion: r.ubicacion,
+                marcaModelo: r.marca_modelo,
+                estado: r.estado,
+                clasificadoPor: r.clasificado_por_nombre || r.clasificado_por_usuario || null,
+                fechaClasificacion: r.fecha_clasificacion || null
+            }))
+        });
+    } catch (err) {
+        console.error('Error al obtener activos no productivos:', err.message);
+        res.status(500).json({
+            success: false,
+            msg: 'Error del servidor al obtener activos no productivos'
+        });
+    }
+};
+
+/**
+ * @desc    Dar de baja un activo (cambiar estado a 'dado_de_baja')
+ * @route   PUT /api/activos-tecnico/:id/dar-de-baja
+ * @access  Private (gestorActivos, admin)
+ */
+exports.darDeBajaActivo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const usuarioId = req.user.id;
+
+        // Verificar que el activo existe
+        const [activos] = await db.query('SELECT id, numero_placa, tipo_activo, estado FROM activos WHERE id = ?', [id]);
+        if (activos.length === 0) {
+            return res.status(404).json({ success: false, msg: 'Activo no encontrado' });
+        }
+
+        const activo = activos[0];
+
+        // Verificar que no esté ya dado de baja
+        if (activo.estado === 'dado_de_baja') {
+            return res.status(400).json({ success: false, msg: 'Este activo ya se encuentra dado de baja' });
+        }
+
+        const estadoAnterior = activo.estado;
+
+        // Actualizar estado
+        await db.query('UPDATE activos SET estado = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['dado_de_baja', id]);
+
+        // Registrar en historial
+        await ActivoHistorial.registrarCambio(id, 'estado', estadoAnterior, 'dado_de_baja', usuarioId);
+
+        res.json({
+            success: true,
+            msg: `Activo ${activo.numero_placa} dado de baja correctamente`,
+            data: { id: activo.id, numeroPlaca: activo.numero_placa, estadoAnterior, estadoNuevo: 'dado_de_baja' }
+        });
+    } catch (err) {
+        console.error('Error al dar de baja activo:', err.message);
+        res.status(500).json({ success: false, msg: 'Error del servidor al dar de baja el activo' });
     }
 };
 

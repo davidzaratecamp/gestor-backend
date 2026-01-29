@@ -32,6 +32,16 @@ router.get('/historial/stats', verifyToken, canViewHistory, activoTecnicoControl
 // @access  Private (gestorActivos, admin)
 router.get('/historial/filtered', verifyToken, canViewHistory, activoTecnicoController.getFilteredHistorial);
 
+// @route   GET /api/activos-tecnico/no-productivos
+// @desc    Obtener activos clasificados como "Activo no productivo"
+// @access  Private (gestorActivos, admin)
+router.get('/no-productivos', verifyToken, canViewHistory, activoTecnicoController.getActivosNoProductivos);
+
+// @route   PUT /api/activos-tecnico/:id/dar-de-baja
+// @desc    Dar de baja un activo
+// @access  Private (gestorActivos, admin)
+router.put('/:id/dar-de-baja', verifyToken, canViewHistory, activoTecnicoController.darDeBajaActivo);
+
 // @route   POST /api/activos-tecnico/:id/inventario
 // @desc    Crear observación de inventario para un activo
 // @access  Private (tecnicoInventario, gestorActivos, admin)
