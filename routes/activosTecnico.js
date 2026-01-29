@@ -22,6 +22,16 @@ router.get('/', verifyToken, canAccessAssets, activoTecnicoController.getActivos
 // @access  Private (gestorActivos, admin)
 router.get('/historial', verifyToken, canViewHistory, activoTecnicoController.getAllHistorial);
 
+// @route   GET /api/activos-tecnico/historial/stats
+// @desc    Obtener estadísticas del historial de cambios
+// @access  Private (gestorActivos, admin)
+router.get('/historial/stats', verifyToken, canViewHistory, activoTecnicoController.getHistorialStats);
+
+// @route   GET /api/activos-tecnico/historial/filtered
+// @desc    Obtener historial filtrado con paginación
+// @access  Private (gestorActivos, admin)
+router.get('/historial/filtered', verifyToken, canViewHistory, activoTecnicoController.getFilteredHistorial);
+
 // @route   GET /api/activos-tecnico/:id/componentes
 // @desc    Obtener componentes editables de un activo específico
 // @access  Private (tecnicoInventario, gestorActivos, admin)
