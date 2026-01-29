@@ -559,7 +559,7 @@ exports.crearObservacionInventario = async (req, res) => {
 
         res.json({
             success: true,
-            msg: 'Observación de inventario registrada correctamente',
+            msg: 'Observación de mantenimiento registrada correctamente',
             data: resultado
         });
     } catch (err) {
