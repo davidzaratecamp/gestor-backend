@@ -32,6 +32,16 @@ router.get('/historial/stats', verifyToken, canViewHistory, activoTecnicoControl
 // @access  Private (gestorActivos, admin)
 router.get('/historial/filtered', verifyToken, canViewHistory, activoTecnicoController.getFilteredHistorial);
 
+// @route   POST /api/activos-tecnico/:id/inventario
+// @desc    Crear observación de inventario para un activo
+// @access  Private (tecnicoInventario, gestorActivos, admin)
+router.post('/:id/inventario', verifyToken, canEditHardwareComponents, activoTecnicoController.crearObservacionInventario);
+
+// @route   GET /api/activos-tecnico/:id/inventario
+// @desc    Obtener observaciones de inventario de un activo
+// @access  Private (tecnicoInventario, gestorActivos, admin)
+router.get('/:id/inventario', verifyToken, canAccessAssets, activoTecnicoController.getObservacionesInventario);
+
 // @route   GET /api/activos-tecnico/:id/componentes
 // @desc    Obtener componentes editables de un activo específico
 // @access  Private (tecnicoInventario, gestorActivos, admin)

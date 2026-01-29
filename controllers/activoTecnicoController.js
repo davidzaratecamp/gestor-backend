@@ -1,5 +1,6 @@
 const Activo = require('../models/Activo');
 const ActivoHistorial = require('../models/ActivoHistorial');
+const InventarioObservacion = require('../models/InventarioObservacion');
 const db = require('../config/db');
 
 // Tipos de activos editables por el técnico de inventario
@@ -517,6 +518,84 @@ exports.getAllHistorial = async (req, res) => {
         res.status(500).json({
             success: false,
             msg: 'Error del servidor al obtener historial'
+        });
+    }
+};
+
+/**
+ * @desc    Crear observación de inventario para un activo
+ * @route   POST /api/activos-tecnico/:id/inventario
+ * @access  Private (tecnicoInventario, gestorActivos, admin)
+ */
+exports.crearObservacionInventario = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { observaciones } = req.body;
+        const usuarioId = req.user.id;
+
+        // Validar que observaciones no esté vacío
+        if (!observaciones || observaciones.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                msg: 'Las observaciones no pueden estar vacías'
+            });
+        }
+
+        // Verificar que el activo existe y es de tipo editable
+        const [activos] = await db.query(`
+            SELECT id, numero_placa, tipo_activo
+            FROM activos
+            WHERE id = ? AND tipo_activo IN (?, ?, ?)
+        `, [id, ...TIPOS_EDITABLES]);
+
+        if (activos.length === 0) {
+            return res.status(404).json({
+                success: false,
+                msg: 'Activo no encontrado o no es un tipo editable'
+            });
+        }
+
+        const resultado = await InventarioObservacion.crear(id, observaciones.trim(), usuarioId);
+
+        res.json({
+            success: true,
+            msg: 'Observación de inventario registrada correctamente',
+            data: resultado
+        });
+    } catch (err) {
+        console.error('Error al crear observación de inventario:', err.message);
+        res.status(500).json({
+            success: false,
+            msg: 'Error del servidor al registrar observación de inventario'
+        });
+    }
+};
+
+/**
+ * @desc    Obtener observaciones de inventario de un activo
+ * @route   GET /api/activos-tecnico/:id/inventario
+ * @access  Private (tecnicoInventario, gestorActivos, admin)
+ */
+exports.getObservacionesInventario = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const observaciones = await InventarioObservacion.getByActivoId(id);
+
+        res.json({
+            success: true,
+            data: observaciones.map(o => ({
+                id: o.id,
+                observaciones: o.observaciones,
+                realizadoPor: o.realizado_por_nombre || o.realizado_por_usuario,
+                fecha: o.fecha_creacion
+            }))
+        });
+    } catch (err) {
+        console.error('Error al obtener observaciones de inventario:', err.message);
+        res.status(500).json({
+            success: false,
+            msg: 'Error del servidor al obtener observaciones de inventario'
         });
     }
 };
