@@ -217,56 +217,93 @@ exports.getTopFailingStations = async (req, res) => {
 exports.getTechnicianPerformance = async (req, res) => {
     try {
         console.log('getTechnicianPerformance called');
-        
-        const [results] = await db.execute(`
-            SELECT 
-                u.id,
-                u.full_name,
-                COALESCE(u.sede, '') as sede,
-                COALESCE(u.departamento, '') as departamento,
-                COALESCE(incidents_stats.total_assigned, 0) as total_assigned,
-                COALESCE(incidents_stats.total_resolved, 0) as total_resolved,
-                COALESCE(incidents_stats.currently_working, 0) as currently_working,
-                COALESCE(incidents_stats.avg_resolution_time_hours, 0) as avg_resolution_time_hours,
-                COALESCE(ratings_stats.avg_rating, 0) as avg_rating,
-                COALESCE(ratings_stats.total_ratings, 0) as total_ratings
-            FROM users u
-            LEFT JOIN (
-                SELECT 
-                    assigned_to_id,
-                    COUNT(*) as total_assigned,
-                    COUNT(CASE WHEN status = 'aprobado' THEN 1 END) as total_resolved,
-                    COUNT(CASE WHEN status = 'en_proceso' THEN 1 END) as currently_working,
-                    ROUND(AVG(
-                        CASE WHEN resolution_time.time_hours IS NOT NULL 
-                        THEN resolution_time.time_hours 
-                        ELSE NULL END
-                    ), 1) as avg_resolution_time_hours
-                FROM incidents i
+
+        const { start_date, end_date } = req.query;
+
+        let results;
+
+        if (start_date && end_date) {
+            // Filtered query: count actions in incident_history within the date range
+            [results] = await db.execute(`
+                SELECT
+                    u.id, u.full_name,
+                    COALESCE(u.sede, '') as sede, COALESCE(u.departamento, '') as departamento,
+                    COALESCE(act.total_assigned, 0) as total_assigned,
+                    COALESCE(act.total_resolved, 0) as total_resolved,
+                    (SELECT COUNT(*) FROM incidents WHERE assigned_to_id = u.id AND status = 'en_proceso') as currently_working,
+                    0 as avg_resolution_time_hours,
+                    COALESCE(r.avg_rating, 0) as avg_rating,
+                    COALESCE(r.total_ratings, 0) as total_ratings
+                FROM users u
                 LEFT JOIN (
-                    SELECT 
-                        assigned_hist.incident_id,
-                        TIMESTAMPDIFF(MINUTE, assigned_hist.timestamp, resolved_hist.timestamp) / 60.0 as time_hours
-                    FROM incident_history assigned_hist
-                    JOIN incident_history resolved_hist ON assigned_hist.incident_id = resolved_hist.incident_id
-                    WHERE assigned_hist.action = 'Asignación de técnico'
-                    AND resolved_hist.action = 'Marcado como resuelto'
-                    AND resolved_hist.timestamp > assigned_hist.timestamp
-                ) resolution_time ON i.id = resolution_time.incident_id
-                WHERE i.assigned_to_id IS NOT NULL
-                GROUP BY i.assigned_to_id
-            ) incidents_stats ON u.id = incidents_stats.assigned_to_id
-            LEFT JOIN (
-                SELECT 
-                    technician_id,
-                    AVG(rating) as avg_rating,
-                    COUNT(*) as total_ratings
-                FROM technician_ratings
-                GROUP BY technician_id
-            ) ratings_stats ON u.id = ratings_stats.technician_id
-            WHERE u.role = 'technician'
-            ORDER BY total_resolved DESC, avg_rating DESC
-        `);
+                    SELECT i.assigned_to_id,
+                        SUM(CASE WHEN ih.action = 'Asignación de técnico' THEN 1 ELSE 0 END) as total_assigned,
+                        SUM(CASE WHEN ih.action = 'Marcado como resuelto' THEN 1 ELSE 0 END) as total_resolved
+                    FROM incident_history ih
+                    JOIN incidents i ON ih.incident_id = i.id AND i.assigned_to_id IS NOT NULL
+                    WHERE ih.action IN ('Asignación de técnico', 'Marcado como resuelto')
+                      AND ih.timestamp >= ? AND ih.timestamp < DATE_ADD(?, INTERVAL 1 DAY)
+                    GROUP BY i.assigned_to_id
+                ) act ON u.id = act.assigned_to_id
+                LEFT JOIN (
+                    SELECT technician_id, AVG(rating) as avg_rating, COUNT(*) as total_ratings
+                    FROM technician_ratings GROUP BY technician_id
+                ) r ON u.id = r.technician_id
+                WHERE u.role = 'technician'
+                ORDER BY total_resolved DESC, avg_rating DESC
+            `, [start_date, end_date]);
+        } else {
+            // Original unfiltered query
+            [results] = await db.execute(`
+                SELECT
+                    u.id,
+                    u.full_name,
+                    COALESCE(u.sede, '') as sede,
+                    COALESCE(u.departamento, '') as departamento,
+                    COALESCE(incidents_stats.total_assigned, 0) as total_assigned,
+                    COALESCE(incidents_stats.total_resolved, 0) as total_resolved,
+                    COALESCE(incidents_stats.currently_working, 0) as currently_working,
+                    COALESCE(incidents_stats.avg_resolution_time_hours, 0) as avg_resolution_time_hours,
+                    COALESCE(ratings_stats.avg_rating, 0) as avg_rating,
+                    COALESCE(ratings_stats.total_ratings, 0) as total_ratings
+                FROM users u
+                LEFT JOIN (
+                    SELECT
+                        assigned_to_id,
+                        COUNT(*) as total_assigned,
+                        COUNT(CASE WHEN status = 'aprobado' THEN 1 END) as total_resolved,
+                        COUNT(CASE WHEN status = 'en_proceso' THEN 1 END) as currently_working,
+                        ROUND(AVG(
+                            CASE WHEN resolution_time.time_hours IS NOT NULL
+                            THEN resolution_time.time_hours
+                            ELSE NULL END
+                        ), 1) as avg_resolution_time_hours
+                    FROM incidents i
+                    LEFT JOIN (
+                        SELECT
+                            assigned_hist.incident_id,
+                            TIMESTAMPDIFF(MINUTE, assigned_hist.timestamp, resolved_hist.timestamp) / 60.0 as time_hours
+                        FROM incident_history assigned_hist
+                        JOIN incident_history resolved_hist ON assigned_hist.incident_id = resolved_hist.incident_id
+                        WHERE assigned_hist.action = 'Asignación de técnico'
+                        AND resolved_hist.action = 'Marcado como resuelto'
+                        AND resolved_hist.timestamp > assigned_hist.timestamp
+                    ) resolution_time ON i.id = resolution_time.incident_id
+                    WHERE i.assigned_to_id IS NOT NULL
+                    GROUP BY i.assigned_to_id
+                ) incidents_stats ON u.id = incidents_stats.assigned_to_id
+                LEFT JOIN (
+                    SELECT
+                        technician_id,
+                        AVG(rating) as avg_rating,
+                        COUNT(*) as total_ratings
+                    FROM technician_ratings
+                    GROUP BY technician_id
+                ) ratings_stats ON u.id = ratings_stats.technician_id
+                WHERE u.role = 'technician'
+                ORDER BY total_resolved DESC, avg_rating DESC
+            `);
+        }
 
         console.log('getTechnicianPerformance query executed successfully, results count:', results.length);
         res.json(results);
