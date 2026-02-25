@@ -387,6 +387,47 @@ exports.getResolutionTimeAnalysis = async (req, res) => {
     }
 };
 
+// @desc    Obtener estadísticas diarias de un técnico
+// @route   GET /api/analytics/technician/:id/daily-stats
+// @access  Private (Admin)
+exports.getTechnicianDailyStats = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const technicianId = parseInt(id, 10);
+
+        if (!technicianId || isNaN(technicianId)) {
+            return res.status(400).json({ msg: 'ID de técnico inválido' });
+        }
+
+        // Default: mes actual
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        const startDate = req.query.start_date || firstDay.toISOString().split('T')[0];
+        const endDate = req.query.end_date || lastDay.toISOString().split('T')[0];
+
+        const [results] = await db.execute(`
+            SELECT
+                DATE(ih.timestamp) as date,
+                SUM(CASE WHEN ih.action = 'Asignación de técnico' THEN 1 ELSE 0 END) as assigned,
+                SUM(CASE WHEN ih.action = 'Marcado como resuelto' THEN 1 ELSE 0 END) as resolved,
+                SUM(CASE WHEN ih.action = 'Devuelto por técnico' THEN 1 ELSE 0 END) as returned
+            FROM incident_history ih
+            JOIN incidents i ON ih.incident_id = i.id
+            WHERE i.assigned_to_id = ?
+              AND ih.timestamp BETWEEN ? AND DATE_ADD(?, INTERVAL 1 DAY)
+            GROUP BY DATE(ih.timestamp)
+            ORDER BY date ASC
+        `, [technicianId, startDate, endDate]);
+
+        res.json(results);
+    } catch (error) {
+        console.error('Error en getTechnicianDailyStats:', error);
+        res.status(500).json({ msg: 'Error del servidor', error: error.message });
+    }
+};
+
 // @desc    Obtener métricas avanzadas de calidad
 // @route   GET /api/analytics/quality-metrics
 // @access  Private (Admin)

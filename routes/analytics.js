@@ -12,7 +12,8 @@ const {
     getHourlyDistribution,
     getWeekdayDistribution,
     getResolutionTimeAnalysis,
-    getQualityMetrics
+    getQualityMetrics,
+    getTechnicianDailyStats
 } = require('../controllers/analyticsController');
 
 const { verifyToken, isAdmin } = require('../middleware/auth');
@@ -80,5 +81,10 @@ router.get('/resolution-time-analysis', getResolutionTimeAnalysis);
 // @desc    Obtener métricas avanzadas de calidad
 // @access  Private (Admin)
 router.get('/quality-metrics', getQualityMetrics);
+
+// @route   GET /api/analytics/technician/:id/daily-stats
+// @desc    Obtener estadísticas diarias de un técnico
+// @access  Private (Admin)
+router.get('/technician/:id/daily-stats', getTechnicianDailyStats);
 
 module.exports = router;
