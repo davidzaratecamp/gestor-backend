@@ -428,6 +428,48 @@ exports.getTechnicianDailyStats = async (req, res) => {
     }
 };
 
+// @desc    Obtener incidencias diarias de un técnico
+// @route   GET /api/analytics/technician/:id/daily-incidents
+// @access  Private (Admin)
+exports.getTechnicianDailyIncidents = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const technicianId = parseInt(id, 10);
+
+        if (!technicianId || isNaN(technicianId)) {
+            return res.status(400).json({ msg: 'ID de técnico inválido' });
+        }
+
+        const { date } = req.query;
+
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return res.status(400).json({ msg: 'Fecha inválida. Use formato YYYY-MM-DD' });
+        }
+
+        const [results] = await db.execute(`
+            SELECT
+                i.id as incident_id,
+                i.failure_type,
+                i.status,
+                COALESCE(i.description, '') as description,
+                ih.action,
+                ih.timestamp,
+                COALESCE(ih.details, '') as details
+            FROM incident_history ih
+            JOIN incidents i ON ih.incident_id = i.id
+            WHERE i.assigned_to_id = ?
+              AND DATE(ih.timestamp) = ?
+              AND ih.action IN ('Asignación de técnico', 'Marcado como resuelto', 'Devuelto por técnico')
+            ORDER BY ih.timestamp ASC
+        `, [technicianId, date]);
+
+        res.json(results);
+    } catch (error) {
+        console.error('Error en getTechnicianDailyIncidents:', error);
+        res.status(500).json({ msg: 'Error del servidor', error: error.message });
+    }
+};
+
 // @desc    Obtener métricas avanzadas de calidad
 // @route   GET /api/analytics/quality-metrics
 // @access  Private (Admin)

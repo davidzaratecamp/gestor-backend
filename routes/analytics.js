@@ -13,7 +13,8 @@ const {
     getWeekdayDistribution,
     getResolutionTimeAnalysis,
     getQualityMetrics,
-    getTechnicianDailyStats
+    getTechnicianDailyStats,
+    getTechnicianDailyIncidents
 } = require('../controllers/analyticsController');
 
 const { verifyToken, isAdmin } = require('../middleware/auth');
@@ -86,5 +87,10 @@ router.get('/quality-metrics', getQualityMetrics);
 // @desc    Obtener estadísticas diarias de un técnico
 // @access  Private (Admin)
 router.get('/technician/:id/daily-stats', getTechnicianDailyStats);
+
+// @route   GET /api/analytics/technician/:id/daily-incidents
+// @desc    Obtener incidencias diarias de un técnico
+// @access  Private (Admin)
+router.get('/technician/:id/daily-incidents', getTechnicianDailyIncidents);
 
 module.exports = router;
