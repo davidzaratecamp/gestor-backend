@@ -282,12 +282,13 @@ exports.getTechnicianPerformance = async (req, res) => {
                     LEFT JOIN (
                         SELECT
                             assigned_hist.incident_id,
-                            TIMESTAMPDIFF(MINUTE, assigned_hist.timestamp, resolved_hist.timestamp) / 60.0 as time_hours
+                            MIN(TIMESTAMPDIFF(MINUTE, assigned_hist.timestamp, resolved_hist.timestamp) / 60.0) as time_hours
                         FROM incident_history assigned_hist
                         JOIN incident_history resolved_hist ON assigned_hist.incident_id = resolved_hist.incident_id
                         WHERE assigned_hist.action = 'Asignación de técnico'
                         AND resolved_hist.action = 'Marcado como resuelto'
                         AND resolved_hist.timestamp > assigned_hist.timestamp
+                        GROUP BY assigned_hist.incident_id
                     ) resolution_time ON i.id = resolution_time.incident_id
                     WHERE i.assigned_to_id IS NOT NULL
                     GROUP BY i.assigned_to_id
