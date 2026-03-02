@@ -12,8 +12,8 @@ const app = express();
 const server = http.createServer(app);
 
 // Configurar CORS dinámicamente según el ambiente
-const corsOrigins = process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'http://31.97.138.23:5173', 'http://31.97.138.23:5174']
+const corsOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.FRONTEND_URL, 'http://31.97.130.60', 'http://31.97.130.60:5001']
     : [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'];
 
 // Configurar Socket.IO
