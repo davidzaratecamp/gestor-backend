@@ -37,10 +37,20 @@ router.get('/historial/filtered', verifyToken, canViewHistory, activoTecnicoCont
 // @access  Private (gestorActivos, admin)
 router.get('/no-productivos', verifyToken, canViewHistory, activoTecnicoController.getActivosNoProductivos);
 
+// @route   GET /api/activos-tecnico/en-bodega
+// @desc    Obtener activos en estado bodega
+// @access  Private (gestorActivos, admin)
+router.get('/en-bodega', verifyToken, canViewHistory, activoTecnicoController.getActivosEnBodega);
+
 // @route   PUT /api/activos-tecnico/:id/dar-de-baja
 // @desc    Dar de baja un activo
 // @access  Private (gestorActivos, admin)
 router.put('/:id/dar-de-baja', verifyToken, canViewHistory, activoTecnicoController.darDeBajaActivo);
+
+// @route   PUT /api/activos-tecnico/:id/estado-mantenimiento
+// @desc    Cambiar estado entre en_mantenimiento y funcional
+// @access  Private (tecnicoInventario, gestorActivos, admin)
+router.put('/:id/estado-mantenimiento', verifyToken, canEditHardwareComponents, activoTecnicoController.actualizarEstadoMantenimiento);
 
 // @route   POST /api/activos-tecnico/:id/inventario
 // @desc    Crear observación de inventario para un activo

@@ -105,7 +105,8 @@ exports.getComponentesActivo = async (req, res) => {
                 ubicacion,
                 site,
                 responsable,
-                asignado
+                asignado,
+                estado
             FROM activos
             WHERE id = ? AND tipo_activo IN (?, ?, ?)
         `, [id, ...TIPOS_EDITABLES]);
@@ -136,7 +137,8 @@ exports.getComponentesActivo = async (req, res) => {
                 ubicacion: activo.ubicacion,
                 site: activo.site,
                 responsable: activo.responsable,
-                asignado: activo.asignado
+                asignado: activo.asignado,
+                estado: activo.estado
             },
             componentes,
             camposEditables: CAMPOS_EDITABLES
@@ -621,6 +623,128 @@ exports.darDeBajaActivo = async (req, res) => {
     } catch (err) {
         console.error('Error al dar de baja activo:', err.message);
         res.status(500).json({ success: false, msg: 'Error del servidor al dar de baja el activo' });
+    }
+};
+
+/**
+ * @desc    Obtener activos que están en estado bodega
+ * @route   GET /api/activos-tecnico/en-bodega
+ * @access  Private (gestorActivos, admin)
+ */
+exports.getActivosEnBodega = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                a.id,
+                a.numero_placa,
+                a.tipo_activo,
+                a.ubicacion,
+                a.marca_modelo,
+                a.estado,
+                h.modificado_por_id,
+                u.full_name AS enviado_por_nombre,
+                u.username AS enviado_por_usuario,
+                h.fecha_modificacion AS fecha_bodega
+            FROM activos a
+            LEFT JOIN (
+                SELECT ah1.*
+                FROM activos_historial ah1
+                INNER JOIN (
+                    SELECT activo_id, MAX(id) AS max_id
+                    FROM activos_historial
+                    WHERE campo_modificado = 'estado'
+                      AND valor_nuevo = 'bodega'
+                    GROUP BY activo_id
+                ) ah2 ON ah1.id = ah2.max_id
+            ) h ON a.id = h.activo_id
+            LEFT JOIN users u ON h.modificado_por_id = u.id
+            WHERE a.estado = 'bodega'
+              AND a.tipo_activo IN ('ECC-CPU', 'ECC-POR', 'ECC-SER')
+            ORDER BY h.fecha_modificacion DESC
+        `);
+
+        res.json({
+            success: true,
+            data: rows.map(r => ({
+                id: r.id,
+                numeroPlaca: r.numero_placa,
+                tipoActivo: r.tipo_activo,
+                ubicacion: r.ubicacion,
+                marcaModelo: r.marca_modelo,
+                estado: r.estado,
+                enviadoPor: r.enviado_por_nombre || r.enviado_por_usuario || null,
+                fechaBodega: r.fecha_bodega || null
+            }))
+        });
+    } catch (err) {
+        console.error('Error al obtener activos en bodega:', err.message);
+        res.status(500).json({
+            success: false,
+            msg: 'Error del servidor al obtener activos en bodega'
+        });
+    }
+};
+
+/**
+ * @desc    Cambiar estado de mantenimiento de un activo (en_mantenimiento <-> funcional)
+ * @route   PUT /api/activos-tecnico/:id/estado-mantenimiento
+ * @access  Private (tecnicoInventario, gestorActivos, admin)
+ */
+exports.actualizarEstadoMantenimiento = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nuevoEstado } = req.body;
+        const usuarioId = req.user.id;
+
+        const estadosPermitidos = ['en_mantenimiento', 'funcional', 'bodega'];
+        if (!estadosPermitidos.includes(nuevoEstado)) {
+            return res.status(400).json({
+                success: false,
+                msg: `Estado inválido. Solo se permite: ${estadosPermitidos.join(', ')}`
+            });
+        }
+
+        const [activos] = await db.query(
+            'SELECT id, numero_placa, estado FROM activos WHERE id = ?',
+            [id]
+        );
+        if (activos.length === 0) {
+            return res.status(404).json({ success: false, msg: 'Activo no encontrado' });
+        }
+
+        const activo = activos[0];
+
+        if (activo.estado === 'dado_de_baja') {
+            return res.status(400).json({ success: false, msg: 'No se puede modificar un activo dado de baja' });
+        }
+
+        if (activo.estado === nuevoEstado) {
+            return res.status(400).json({ success: false, msg: `El activo ya se encuentra en estado "${nuevoEstado}"` });
+        }
+
+        const estadoAnterior = activo.estado;
+
+        await db.query(
+            'UPDATE activos SET estado = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [nuevoEstado, id]
+        );
+
+        await ActivoHistorial.registrarCambio(id, 'estado', estadoAnterior, nuevoEstado, usuarioId);
+
+        const mensajes = {
+            en_mantenimiento: `Activo ${activo.numero_placa} puesto en mantenimiento`,
+            funcional: `Activo ${activo.numero_placa} marcado como funcional`,
+            bodega: `Activo ${activo.numero_placa} enviado a bodega`
+        };
+
+        res.json({
+            success: true,
+            msg: mensajes[nuevoEstado],
+            data: { id: activo.id, numeroPlaca: activo.numero_placa, estadoAnterior, estadoNuevo: nuevoEstado }
+        });
+    } catch (err) {
+        console.error('Error al actualizar estado de mantenimiento:', err.message);
+        res.status(500).json({ success: false, msg: 'Error del servidor al actualizar el estado' });
     }
 };
 
