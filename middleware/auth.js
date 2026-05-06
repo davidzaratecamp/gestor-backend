@@ -53,9 +53,12 @@ const isAdminOrSupervisor = verifyRole(['admin', 'supervisor', 'coordinador']);
 
 // Middlewares para tecnicoInventario
 const isTecnicoInventario = verifyRole(['tecnicoInventario']);
-const canAccessAssets = verifyRole(['tecnicoInventario', 'gestorActivos', 'admin']);
+const canAccessAssets = verifyRole(['tecnicoInventario', 'gestorActivos', 'directivoFinanciero', 'admin']);
 const canViewAssetHistory = verifyRole(['gestorActivos', 'admin']);
 const canEditHardwareComponents = verifyRole(['tecnicoInventario', 'gestorActivos', 'admin']);
+
+// Middleware para directivoFinanciero
+const isDirectivoFinanciero = verifyRole(['directivoFinanciero', 'admin']);
 
 module.exports = {
     verifyToken,
@@ -77,5 +80,7 @@ module.exports = {
     isTecnicoInventario,
     canAccessAssets,
     canViewAssetHistory,
-    canEditHardwareComponents
+    canEditHardwareComponents,
+    // Middleware para directivoFinanciero
+    isDirectivoFinanciero
 };

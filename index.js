@@ -49,6 +49,7 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/activos', require('./routes/activos'));
 app.use('/api/activos-tecnico', require('./routes/activosTecnico'));
+app.use('/api/inventario-directivo', require('./routes/inventarioDirectivo'));
 app.use('/api/auto-activos', require('./routes/autoActivos'));
 app.use('/api/script-parser', require('./routes/scriptParser'));
 
