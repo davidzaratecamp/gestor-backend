@@ -3,8 +3,8 @@ const ActivoHistorial = require('../models/ActivoHistorial');
 const InventarioObservacion = require('../models/InventarioObservacion');
 const db = require('../config/db');
 
-// Tipos de activos editables por el técnico de inventario
-const TIPOS_EDITABLES = ['ECC-CPU', 'ECC-POR', 'ECC-SER'];
+// Todos los tipos de activos tecnológicos son accesibles por el técnico de inventario
+const TIPOS_EDITABLES = ['ECC-CPU', 'ECC-POR', 'ECC-SER', 'ECC-MON', 'ECC-IMP', 'ECC-TV', 'OTHER'];
 
 // Campos de componentes que puede editar el técnico
 const CAMPOS_EDITABLES = ['cpu_procesador', 'memoria_ram', 'almacenamiento', 'sistema_operativo', 'clasificacion'];
@@ -46,9 +46,9 @@ exports.getActivosEditables = async (req, res) => {
                 a.clasificacion,
                 a.estado
             FROM activos a
-            WHERE a.tipo_activo IN (?, ?, ?)
+            WHERE 1=1
         `;
-        const params = [...TIPOS_EDITABLES];
+        const params = [];
 
         // Filtro por número de placa
         if (numero_placa) {
@@ -108,13 +108,13 @@ exports.getComponentesActivo = async (req, res) => {
                 asignado,
                 estado
             FROM activos
-            WHERE id = ? AND tipo_activo IN (?, ?, ?)
-        `, [id, ...TIPOS_EDITABLES]);
+            WHERE id = ?
+        `, [id]);
 
         if (rows.length === 0) {
             return res.status(404).json({
                 success: false,
-                msg: 'Activo no encontrado o no es un tipo editable (CPU, Portátil o Servidor)'
+                msg: 'Activo no encontrado'
             });
         }
 
@@ -179,17 +179,17 @@ exports.actualizarComponente = async (req, res) => {
             });
         }
 
-        // Verificar que el activo existe y es de tipo editable
+        // Verificar que el activo existe
         const [activos] = await db.query(`
             SELECT id, numero_placa, tipo_activo, ${campo} as valor_actual
             FROM activos
-            WHERE id = ? AND tipo_activo IN (?, ?, ?)
-        `, [id, ...TIPOS_EDITABLES]);
+            WHERE id = ?
+        `, [id]);
 
         if (activos.length === 0) {
             return res.status(404).json({
                 success: false,
-                msg: 'Activo no encontrado o no es un tipo editable'
+                msg: 'Activo no encontrado'
             });
         }
 
@@ -558,7 +558,6 @@ exports.getActivosNoProductivos = async (req, res) => {
             ) h ON a.id = h.activo_id
             LEFT JOIN users u ON h.modificado_por_id = u.id
             WHERE a.clasificacion = 'Activo no productivo'
-              AND a.tipo_activo IN ('ECC-CPU', 'ECC-POR')
             ORDER BY a.numero_placa ASC
         `);
 
@@ -659,7 +658,6 @@ exports.getActivosEnBodega = async (req, res) => {
             ) h ON a.id = h.activo_id
             LEFT JOIN users u ON h.modificado_por_id = u.id
             WHERE a.estado = 'bodega'
-              AND a.tipo_activo IN ('ECC-CPU', 'ECC-POR', 'ECC-SER')
             ORDER BY h.fecha_modificacion DESC
         `);
 
@@ -769,17 +767,17 @@ exports.crearObservacionInventario = async (req, res) => {
             });
         }
 
-        // Verificar que el activo existe y es de tipo editable
+        // Verificar que el activo existe
         const [activos] = await db.query(`
             SELECT id, numero_placa, tipo_activo
             FROM activos
-            WHERE id = ? AND tipo_activo IN (?, ?, ?)
-        `, [id, ...TIPOS_EDITABLES]);
+            WHERE id = ?
+        `, [id]);
 
         if (activos.length === 0) {
             return res.status(404).json({
                 success: false,
-                msg: 'Activo no encontrado o no es un tipo editable'
+                msg: 'Activo no encontrado'
             });
         }
 
