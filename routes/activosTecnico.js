@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken, verifyRole } = require('../middleware/auth');
+const { verifyToken, verifyRole, isAdmin } = require('../middleware/auth');
 const activoTecnicoController = require('../controllers/activoTecnicoController');
 
 // Middleware para verificar roles que pueden acceder a activos
@@ -42,10 +42,15 @@ router.get('/no-productivos', verifyToken, canViewHistory, activoTecnicoControll
 // @access  Private (gestorActivos, admin)
 router.get('/en-bodega', verifyToken, canViewHistory, activoTecnicoController.getActivosEnBodega);
 
+// @route   GET /api/activos-tecnico/pendientes-baja
+// @desc    Obtener activos con solicitud de baja pendiente de aprobación
+// @access  Private (admin only)
+router.get('/pendientes-baja', verifyToken, isAdmin, activoTecnicoController.getPendientesBaja);
+
 // @route   PUT /api/activos-tecnico/:id/dar-de-baja
-// @desc    Dar de baja un activo
-// @access  Private (gestorActivos, admin)
-router.put('/:id/dar-de-baja', verifyToken, canViewHistory, activoTecnicoController.darDeBajaActivo);
+// @desc    Aprobar y ejecutar la baja de un activo (acción definitiva e irreversible)
+// @access  Private (admin only)
+router.put('/:id/dar-de-baja', verifyToken, isAdmin, activoTecnicoController.darDeBajaActivo);
 
 // @route   PUT /api/activos-tecnico/:id/estado-mantenimiento
 // @desc    Cambiar estado entre en_mantenimiento y funcional

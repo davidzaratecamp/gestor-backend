@@ -696,7 +696,8 @@ exports.actualizarEstadoMantenimiento = async (req, res) => {
         const { nuevoEstado } = req.body;
         const usuarioId = req.user.id;
 
-        const estadosPermitidos = ['en_mantenimiento', 'funcional', 'bodega'];
+        // pendiente_baja: solicitud de baja para que el admin apruebe
+        const estadosPermitidos = ['en_mantenimiento', 'funcional', 'bodega', 'pendiente_baja'];
         if (!estadosPermitidos.includes(nuevoEstado)) {
             return res.status(400).json({
                 success: false,
@@ -734,7 +735,8 @@ exports.actualizarEstadoMantenimiento = async (req, res) => {
         const mensajes = {
             en_mantenimiento: `Activo ${activo.numero_placa} puesto en mantenimiento`,
             funcional: `Activo ${activo.numero_placa} marcado como funcional`,
-            bodega: `Activo ${activo.numero_placa} enviado a bodega`
+            bodega: `Activo ${activo.numero_placa} enviado a bodega`,
+            pendiente_baja: `Solicitud de baja para ${activo.numero_placa} enviada al administrador`
         };
 
         res.json({
@@ -793,6 +795,68 @@ exports.crearObservacionInventario = async (req, res) => {
         res.status(500).json({
             success: false,
             msg: 'Error del servidor al registrar observación de inventario'
+        });
+    }
+};
+
+/**
+ * @desc    Obtener activos con solicitud de baja pendiente de aprobación del admin
+ * @route   GET /api/activos-tecnico/pendientes-baja
+ * @access  Private (admin only)
+ */
+exports.getPendientesBaja = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                a.id,
+                a.numero_placa,
+                a.tipo_activo,
+                a.ubicacion,
+                a.site,
+                a.marca_modelo,
+                a.estado,
+                a.clasificacion,
+                h.modificado_por_id,
+                u.full_name AS solicitado_por_nombre,
+                u.username AS solicitado_por_usuario,
+                h.fecha_modificacion AS fecha_solicitud
+            FROM activos a
+            LEFT JOIN (
+                SELECT ah1.*
+                FROM activos_historial ah1
+                INNER JOIN (
+                    SELECT activo_id, MAX(id) AS max_id
+                    FROM activos_historial
+                    WHERE campo_modificado = 'estado'
+                      AND valor_nuevo = 'pendiente_baja'
+                    GROUP BY activo_id
+                ) ah2 ON ah1.id = ah2.max_id
+            ) h ON a.id = h.activo_id
+            LEFT JOIN users u ON h.modificado_por_id = u.id
+            WHERE a.estado = 'pendiente_baja'
+            ORDER BY h.fecha_modificacion ASC
+        `);
+
+        res.json({
+            success: true,
+            data: rows.map(r => ({
+                id: r.id,
+                numeroPlaca: r.numero_placa,
+                tipoActivo: r.tipo_activo,
+                ubicacion: r.ubicacion,
+                site: r.site,
+                marcaModelo: r.marca_modelo,
+                estado: r.estado,
+                clasificacion: r.clasificacion,
+                solicitadoPor: r.solicitado_por_nombre || r.solicitado_por_usuario || null,
+                fechaSolicitud: r.fecha_solicitud || null
+            }))
+        });
+    } catch (err) {
+        console.error('Error al obtener solicitudes de baja pendientes:', err.message);
+        res.status(500).json({
+            success: false,
+            msg: 'Error del servidor al obtener solicitudes de baja'
         });
     }
 };

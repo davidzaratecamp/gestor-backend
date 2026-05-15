@@ -100,21 +100,29 @@ const activoController = {
                 activoData.valor = valorNum;
             }
 
+            // Solo admin puede crear activos con estado 'dado_de_baja'
+            if (activoData.estado === 'dado_de_baja' && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo el administrador puede asignar el estado "dado de baja". Use "Solicitar Baja" para que el admin lo apruebe.'
+                });
+            }
+
             // Validar ubicaciones permitidas
             const ubicacionesPermitidas = ["Claro", "Obama", "IT", "Contratación", "Reclutamiento", "Selección", "Finanzas", "Majority"];
             if (!ubicacionesPermitidas.includes(activoData.ubicacion)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Ubicación no válida' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Ubicación no válida'
                 });
             }
 
             // Validar clasificaciones permitidas
             const clasificacionesPermitidas = ['Activo productivo', 'Activo no productivo'];
             if (!clasificacionesPermitidas.includes(activoData.clasificacion)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Clasificación no válida' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Clasificación no válida'
                 });
             }
 
@@ -215,6 +223,14 @@ const activoController = {
                 }
                 // Actualizar el valor parseado
                 activoData.valor = valorNum;
+            }
+
+            // Solo admin puede establecer estado 'dado_de_baja' vía edición directa
+            if (activoData.estado === 'dado_de_baja' && req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo el administrador puede asignar el estado "dado de baja". Use "Solicitar Baja" para que el admin lo apruebe.'
+                });
             }
 
             // Manejar archivo adjunto si existe
