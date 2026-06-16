@@ -12,12 +12,12 @@ class Activo {
                 SELECT
                     a.*,
                     u.full_name as created_by_name,
-                    ag.nombres   AS agente_nombres,
-                    ag.apellidos AS agente_apellidos,
-                    ag.campana   AS agente_campana
+                    CONCAT_WS(' ', ag.primer_nombre, ag.segundo_nombre)     AS agente_nombres,
+                    CONCAT_WS(' ', ag.primer_apellido, ag.segundo_apellido) AS agente_apellidos,
+                    ag.numero_identificacion AS agente_identificacion
                 FROM activos a
                 LEFT JOIN users   u  ON a.created_by_id = u.id
-                LEFT JOIN agentes ag ON a.agente_id      = ag.id
+                LEFT JOIN users_company ag ON a.agente_id = ag.id
                 ORDER BY a.created_at DESC
             `);
             return rows;
@@ -32,12 +32,12 @@ class Activo {
                 SELECT
                     a.*,
                     u.full_name as created_by_name,
-                    ag.nombres   AS agente_nombres,
-                    ag.apellidos AS agente_apellidos,
-                    ag.campana   AS agente_campana
+                    CONCAT_WS(' ', ag.primer_nombre, ag.segundo_nombre)     AS agente_nombres,
+                    CONCAT_WS(' ', ag.primer_apellido, ag.segundo_apellido) AS agente_apellidos,
+                    ag.numero_identificacion AS agente_identificacion
                 FROM activos a
                 LEFT JOIN users   u  ON a.created_by_id = u.id
-                LEFT JOIN agentes ag ON a.agente_id      = ag.id
+                LEFT JOIN users_company ag ON a.agente_id = ag.id
                 WHERE a.id = ?
             `, [id]);
             return rows[0];
