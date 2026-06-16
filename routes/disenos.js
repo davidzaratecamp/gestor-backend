@@ -58,7 +58,7 @@ router.get('/:id/devoluciones', ctrl.getDevoluciones);
 // Eliminar archivo de entrega
 router.delete('/:id/entregas/:archivoId', ctrl.deleteEntrega);
 
-// Eliminar diseño (admin o coordinador)
-router.delete('/:id', isAdminOrCoordinador, ctrl.deleteDiseno);
+// Eliminar diseño (admin, coordinador o diseñador que lo creó)
+router.delete('/:id', ctrl.deleteDiseno);
 
 module.exports = router;
