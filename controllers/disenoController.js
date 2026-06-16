@@ -136,6 +136,16 @@ const deleteDiseno = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Diseño no encontrado' });
         }
 
+        const { role, id: userId } = req.user;
+        const canDelete =
+            role === 'admin' ||
+            role === 'coordinador' ||
+            role === 'disenador';
+
+        if (!canDelete) {
+            return res.status(403).json({ success: false, message: 'Sin permisos para eliminar este diseño' });
+        }
+
         const filenames = await Diseno.delete(req.params.id);
         filenames.forEach(f => _deleteFile('disenos', f));
 
