@@ -253,19 +253,32 @@ exports.createIncident = async (req, res) => {
     try {
         // Generar código de estación automáticamente
         const stationCode = generateStationCode(incidentSede, departamento, puestoNum);
-        
+
         // Usar el departamento real sin mapeos artificiales
         const workstationDepartment = departamento;
-        
+
         // Crear o encontrar la estación de trabajo
         let workstation;
-        
+
         if (incidentSede === 'barranquilla') {
-            // Para Barranquilla, siempre crear una nueva workstation única para preservar datos históricos
+            // Para Barranquilla, verificar incidencia activa por AnyDesk antes de crear workstation
+            const activeByAnydesk = await Incident.hasActiveIncidentByAnydesk(anydesk_address);
+            if (activeByAnydesk) {
+                const statusLabel = {
+                    pendiente: 'pendiente de asignación',
+                    en_proceso: 'en proceso',
+                    en_supervision: 'en supervisión',
+                    devuelto: 'devuelta para corrección'
+                }[activeByAnydesk.status] || activeByAnydesk.status;
+                return res.status(409).json({
+                    msg: `Este equipo (AnyDesk: ${anydesk_address}) ya tiene una incidencia activa (${statusLabel}). Debe resolverse antes de crear una nueva.`
+                });
+            }
+
             // Generar código único con sufijo aleatorio corto
             const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
             const uniqueStationCode = `${stationCode}-${randomSuffix}`;
-            
+
             workstation = await Workstation.create({
                 station_code: uniqueStationCode,
                 location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
@@ -277,8 +290,22 @@ exports.createIncident = async (req, res) => {
         } else {
             // Para otras sedes, usar el método existente
             workstation = await Workstation.findOrCreateByCode(stationCode, departamento, incidentSede);
+
+            // Verificar si ya hay una incidencia activa en esta workstation
+            const activeIncident = await Incident.hasActiveIncident(workstation.id);
+            if (activeIncident) {
+                const statusLabel = {
+                    pendiente: 'pendiente de asignación',
+                    en_proceso: 'en proceso',
+                    en_supervision: 'en supervisión',
+                    devuelto: 'devuelta para corrección'
+                }[activeIncident.status] || activeIncident.status;
+                return res.status(409).json({
+                    msg: `Este equipo (${stationCode}) ya tiene una incidencia activa (${statusLabel}). Debe resolverse antes de crear una nueva.`
+                });
+            }
         }
-        
+
         const newIncident = await Incident.create({
             workstation_id: workstation.id,
             reported_by_id: req.user.id,
@@ -399,19 +426,32 @@ exports.createIncidentWithFiles = async (req, res) => {
     try {
         // Generar código de estación automáticamente
         const stationCode = generateStationCode(incidentSede, departamento, puestoNum);
-        
+
         // Usar el departamento real sin mapeos artificiales
         const workstationDepartment = departamento;
-        
+
         // Crear o encontrar la estación de trabajo
         let workstation;
-        
+
         if (incidentSede === 'barranquilla') {
-            // Para Barranquilla, siempre crear una nueva workstation única para preservar datos históricos
+            // Para Barranquilla, verificar incidencia activa por AnyDesk antes de crear workstation
+            const activeByAnydesk = await Incident.hasActiveIncidentByAnydesk(anydesk_address);
+            if (activeByAnydesk) {
+                const statusLabel = {
+                    pendiente: 'pendiente de asignación',
+                    en_proceso: 'en proceso',
+                    en_supervision: 'en supervisión',
+                    devuelto: 'devuelta para corrección'
+                }[activeByAnydesk.status] || activeByAnydesk.status;
+                return res.status(409).json({
+                    msg: `Este equipo (AnyDesk: ${anydesk_address}) ya tiene una incidencia activa (${statusLabel}). Debe resolverse antes de crear una nueva.`
+                });
+            }
+
             // Generar código único con sufijo aleatorio corto
             const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
             const uniqueStationCode = `${stationCode}-${randomSuffix}`;
-            
+
             workstation = await Workstation.create({
                 station_code: uniqueStationCode,
                 location_details: `Puesto ${stationCode} - ${departamento.toUpperCase()} (Remoto)`,
@@ -423,18 +463,17 @@ exports.createIncidentWithFiles = async (req, res) => {
         } else if (isAdministrativo) {
             // Para administrativos, crear workstation especial
             const existingStation = await Workstation.getByStationCode(stationCode);
-            
+
             if (existingStation) {
                 workstation = existingStation;
             } else {
-                // Crear workstation para área administrativa
                 const departamentoLabel = {
                     'contratacion': 'Contratación',
-                    'seleccion': 'Selección', 
+                    'seleccion': 'Selección',
                     'reclutamiento': 'Reclutamiento',
                     'area_financiera': 'Área Financiera'
                 }[departamento] || departamento;
-                
+
                 workstation = await Workstation.create({
                     station_code: stationCode,
                     location_details: `Área ${departamentoLabel} - ${incidentSede.toUpperCase()}`,
@@ -442,9 +481,37 @@ exports.createIncidentWithFiles = async (req, res) => {
                     departamento: workstationDepartment
                 });
             }
+
+            // Verificar incidencia activa en el área administrativa
+            const activeIncident = await Incident.hasActiveIncident(workstation.id);
+            if (activeIncident) {
+                const statusLabel = {
+                    pendiente: 'pendiente de asignación',
+                    en_proceso: 'en proceso',
+                    en_supervision: 'en supervisión',
+                    devuelto: 'devuelta para corrección'
+                }[activeIncident.status] || activeIncident.status;
+                return res.status(409).json({
+                    msg: `Esta área (${stationCode}) ya tiene una incidencia activa (${statusLabel}). Debe resolverse antes de crear una nueva.`
+                });
+            }
         } else {
             // Para otras sedes, usar el método existente
             workstation = await Workstation.findOrCreateByCode(stationCode, departamento, incidentSede);
+
+            // Verificar si ya hay una incidencia activa en esta workstation
+            const activeIncident = await Incident.hasActiveIncident(workstation.id);
+            if (activeIncident) {
+                const statusLabel = {
+                    pendiente: 'pendiente de asignación',
+                    en_proceso: 'en proceso',
+                    en_supervision: 'en supervisión',
+                    devuelto: 'devuelta para corrección'
+                }[activeIncident.status] || activeIncident.status;
+                return res.status(409).json({
+                    msg: `Este equipo (${stationCode}) ya tiene una incidencia activa (${statusLabel}). Debe resolverse antes de crear una nueva.`
+                });
+            }
         }
         
         const newIncident = await Incident.create({

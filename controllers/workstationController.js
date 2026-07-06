@@ -1,4 +1,144 @@
 const Workstation = require('../models/Workstation');
+const db = require('../config/db');
+
+// @desc    Obtener estadísticas de todas las estaciones con conteo de incidencias
+// @route   GET /api/workstations/stats
+// @access  Private (Admin)
+exports.getWorkstationStats = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                w.id AS workstation_id,
+                w.station_code,
+                w.sede,
+                w.departamento,
+                w.location_details,
+                w.anydesk_address,
+                w.advisor_cedula,
+                w.created_at,
+                COUNT(i.id) AS total_incidents,
+                COUNT(CASE WHEN i.status IN ('pendiente','en_proceso','en_supervision','devuelto') THEN 1 END) AS pending_incidents,
+                COUNT(CASE WHEN i.status = 'aprobado' THEN 1 END) AS resolved_incidents,
+                COUNT(CASE WHEN i.status = 'rechazado' THEN 1 END) AS rejected_incidents,
+                COUNT(CASE WHEN i.failure_type = 'pantalla'   THEN 1 END) AS pantalla_count,
+                COUNT(CASE WHEN i.failure_type = 'perifericos' THEN 1 END) AS perifericos_count,
+                COUNT(CASE WHEN i.failure_type = 'internet'   THEN 1 END) AS internet_count,
+                COUNT(CASE WHEN i.failure_type = 'software'   THEN 1 END) AS software_count,
+                COUNT(CASE WHEN i.failure_type = 'otro'       THEN 1 END) AS otro_count,
+                AVG(CASE WHEN i.status = 'aprobado'
+                    THEN TIMESTAMPDIFF(HOUR, i.created_at, i.updated_at) END) AS avg_resolution_hours,
+                MAX(i.created_at) AS last_incident_date
+            FROM workstations w
+            LEFT JOIN incidents i ON w.id = i.workstation_id
+            GROUP BY
+                w.id, w.station_code, w.sede, w.departamento,
+                w.location_details, w.anydesk_address, w.advisor_cedula, w.created_at
+            ORDER BY total_incidents DESC
+        `);
+
+        // Calcular risk_score en JS (misma lógica del frontend original)
+        const result = rows.map(row => {
+            const frequencyScore  = Math.min(row.total_incidents * 2, 40);
+            const criticalScore   = Math.min((row.pantalla_count + row.internet_count) * 5, 30);
+            const pendingScore    = Math.min(row.pending_incidents * 3, 20);
+
+            let timeScore = 0;
+            if (row.last_incident_date) {
+                const daysSince = (Date.now() - new Date(row.last_incident_date)) / (1000 * 60 * 60 * 24);
+                if (daysSince < 7)  timeScore = 10;
+                else if (daysSince < 30) timeScore = 5;
+            }
+
+            return {
+                ...row,
+                avg_resolution_hours: row.avg_resolution_hours
+                    ? parseFloat(row.avg_resolution_hours).toFixed(1)
+                    : 0,
+                risk_score: frequencyScore + criticalScore + pendingScore + timeScore
+            };
+        });
+
+        res.json(result);
+    } catch (err) {
+        console.error('Error en getWorkstationStats:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
+// @desc    Obtener historial completo de incidencias de una estación
+// @route   GET /api/workstations/:id/history
+// @access  Private (Admin)
+exports.getWorkstationHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [incidents] = await db.query(`
+            SELECT
+                i.id,
+                i.failure_type,
+                i.description,
+                i.status,
+                i.created_at,
+                i.updated_at,
+                i.return_count,
+                reporter.full_name    AS reported_by_name,
+                reporter.role         AS reported_by_role,
+                tech.full_name        AS technician_name,
+                supervisor.full_name  AS supervisor_name,
+                TIMESTAMPDIFF(HOUR, i.created_at,
+                    CASE WHEN i.status = 'aprobado' THEN i.updated_at ELSE NOW() END
+                ) AS hours_open
+            FROM incidents i
+            JOIN users reporter    ON i.reported_by_id  = reporter.id
+            LEFT JOIN users tech   ON i.assigned_to_id  = tech.id
+            LEFT JOIN (
+                SELECT DISTINCT ih.incident_id, u.full_name
+                FROM incident_history ih
+                JOIN users u ON ih.user_id = u.id
+                WHERE ih.action = 'Aprobado por supervisor'
+            ) sup ON i.id = sup.incident_id
+            LEFT JOIN users supervisor ON sup.full_name = supervisor.full_name
+            WHERE i.workstation_id = ?
+            ORDER BY i.created_at DESC
+        `, [id]);
+
+        // Para cada incidencia, traer el historial de acciones
+        const incidentIds = incidents.map(i => i.id);
+        let historyMap = {};
+
+        if (incidentIds.length > 0) {
+            const placeholders = incidentIds.map(() => '?').join(',');
+            const [history] = await db.query(`
+                SELECT
+                    ih.incident_id,
+                    ih.action,
+                    ih.details,
+                    ih.timestamp,
+                    u.full_name AS user_name,
+                    u.role      AS user_role
+                FROM incident_history ih
+                JOIN users u ON ih.user_id = u.id
+                WHERE ih.incident_id IN (${placeholders})
+                ORDER BY ih.timestamp ASC
+            `, incidentIds);
+
+            history.forEach(h => {
+                if (!historyMap[h.incident_id]) historyMap[h.incident_id] = [];
+                historyMap[h.incident_id].push(h);
+            });
+        }
+
+        const result = incidents.map(inc => ({
+            ...inc,
+            history: historyMap[inc.id] || []
+        }));
+
+        res.json(result);
+    } catch (err) {
+        console.error('Error en getWorkstationHistory:', err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
 
 // @desc    Obtener todas las estaciones de trabajo
 // @route   GET /api/workstations
