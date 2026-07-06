@@ -720,6 +720,36 @@ class Incident {
         }
     }
 
+    static async hasActiveIncident(workstationId) {
+        try {
+            const [rows] = await db.query(`
+                SELECT id, status FROM incidents
+                WHERE workstation_id = ?
+                AND status IN ('pendiente', 'en_proceso', 'en_supervision', 'devuelto')
+                LIMIT 1
+            `, [workstationId]);
+            return rows[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async hasActiveIncidentByAnydesk(anydeskAddress) {
+        try {
+            const [rows] = await db.query(`
+                SELECT i.id, i.status, w.station_code
+                FROM incidents i
+                JOIN workstations w ON i.workstation_id = w.id
+                WHERE w.anydesk_address = ?
+                AND i.status IN ('pendiente', 'en_proceso', 'en_supervision', 'devuelto')
+                LIMIT 1
+            `, [anydeskAddress]);
+            return rows[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async getReturnedIncidents(userRole, userSede, userDepartamento, userId) {
         try {
             let query = `
