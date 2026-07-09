@@ -30,25 +30,37 @@ class Workstation {
 
     static async create(stationData) {
         try {
-            const { station_code, location_details, sede, departamento, anydesk_address, advisor_cedula } = stationData;
-            
+            const { station_code, location_details, sede, departamento, anydesk_address, advisor_cedula, anydesk_password, modalidad } = stationData;
+
             // Construir query dinámicamente según los campos presentes
             let fields = ['station_code', 'location_details', 'sede', 'departamento'];
             let values = [station_code, location_details, sede, departamento];
             let placeholders = ['?', '?', '?', '?'];
-            
+
             if (anydesk_address) {
                 fields.push('anydesk_address');
                 values.push(anydesk_address);
                 placeholders.push('?');
             }
-            
+
             if (advisor_cedula) {
                 fields.push('advisor_cedula');
                 values.push(advisor_cedula);
                 placeholders.push('?');
             }
-            
+
+            if (anydesk_password) {
+                fields.push('anydesk_password');
+                values.push(anydesk_password);
+                placeholders.push('?');
+            }
+
+            if (modalidad) {
+                fields.push('modalidad');
+                values.push(modalidad);
+                placeholders.push('?');
+            }
+
             const query = `INSERT INTO workstations (${fields.join(', ')}) VALUES (${placeholders.join(', ')})`;
             const [result] = await db.query(query, values);
             
