@@ -23,6 +23,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
                     assigned.id AS assigned_to_id
@@ -65,6 +67,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name
                 FROM incidents i
@@ -479,6 +483,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS technician_name
                 FROM incidents i
@@ -509,6 +515,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS technician_name
                 FROM incidents i
@@ -582,6 +590,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     assigned.full_name AS assigned_to_name,
                     assigned.id AS assigned_to_id,
@@ -769,6 +779,8 @@ class Incident {
                     w.departamento,
                     w.anydesk_address,
                     w.advisor_cedula,
+                    w.anydesk_password,
+                    w.modalidad,
                     reporter.full_name AS reported_by_name,
                     returned_by.full_name AS returned_by_name
                 FROM incidents i

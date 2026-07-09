@@ -161,55 +161,78 @@ exports.getIncidentHistory = async (req, res) => {
 // @route   POST /api/incidents
 // @access  Private (Supervisor/Admin)
 exports.createIncident = async (req, res) => {
-    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula } = req.body;
+    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula, anydesk_password, es_teletrabajo } = req.body;
 
     // Validaciones básicas
-    if (!departamento || !puesto_numero || !failure_type || !description) {
-        return res.status(400).json({ 
-            msg: 'Todos los campos son requeridos: departamento, número de puesto, tipo de falla y descripción' 
+    if (!departamento || !failure_type || !description) {
+        return res.status(400).json({
+            msg: 'Todos los campos son requeridos: departamento, tipo de falla y descripción'
         });
     }
 
     // Validar sede
     const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
     let incidentSede;
-    
+
     // Para jefes de operaciones, siempre usar su sede (no pueden cambiarla)
     if (req.user.role === 'jefe_operaciones') {
         incidentSede = req.user.sede;
         if (sede && sede !== req.user.sede) {
-            return res.status(400).json({ 
-                msg: `Los jefes de operaciones solo pueden crear incidencias en su sede: ${req.user.sede}` 
+            return res.status(400).json({
+                msg: `Los jefes de operaciones solo pueden crear incidencias en su sede: ${req.user.sede}`
             });
         }
     } else {
         incidentSede = sede || req.user.sede || 'bogota';
     }
-    
-    if (!validSedes.includes(incidentSede)) {
-        return res.status(400).json({ 
-            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
-        });
-    }
 
-    // Validaciones especiales para Barranquilla
-    if (incidentSede === 'barranquilla') {
-        if (!anydesk_address) {
-            return res.status(400).json({ 
-                msg: 'La dirección AnyDesk es requerida para incidencias en Barranquilla' 
-            });
-        }
-        if (!advisor_cedula) {
-            return res.status(400).json({ 
-                msg: 'La cédula del asesor es requerida para incidencias en Barranquilla' 
-            });
-        }
+    if (!validSedes.includes(incidentSede)) {
+        return res.status(400).json({
+            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio'
+        });
     }
 
     // Validar departamentos según la sede y rol
     const userRole = req.user.role;
     const isAdministrativo = userRole === 'administrativo';
     const isJefeOperaciones = userRole === 'jefe_operaciones';
+    // Teletrabajo: solo disponible para Bogotá/Villavicencio (Barranquilla ya es remoto por defecto)
+    const isTeletrabajo = incidentSede !== 'barranquilla' && !isAdministrativo && (es_teletrabajo === 'true' || es_teletrabajo === true);
+
+    if (!isTeletrabajo && !puesto_numero) {
+        return res.status(400).json({
+            msg: 'Todos los campos son requeridos: departamento, número de puesto, tipo de falla y descripción'
+        });
+    }
+
+    // Validaciones especiales para Barranquilla
+    if (incidentSede === 'barranquilla') {
+        if (!anydesk_address) {
+            return res.status(400).json({
+                msg: 'La dirección AnyDesk es requerida para incidencias en Barranquilla'
+            });
+        }
+        if (!advisor_cedula) {
+            return res.status(400).json({
+                msg: 'La cédula del asesor es requerida para incidencias en Barranquilla'
+            });
+        }
+    }
+
+    // Validaciones especiales para teletrabajo (Bogotá / Villavicencio)
+    if (isTeletrabajo) {
+        if (!anydesk_address) {
+            return res.status(400).json({
+                msg: 'El usuario de AnyDesk es requerido para incidencias en teletrabajo'
+            });
+        }
+        if (!anydesk_password) {
+            return res.status(400).json({
+                msg: 'La contraseña de AnyDesk es requerida para incidencias en teletrabajo'
+            });
+        }
+    }
+
     let validDepartamentos;
     
     if (isAdministrativo) {
@@ -243,10 +266,10 @@ exports.createIncident = async (req, res) => {
         });
     }
 
-    const puestoNum = parseInt(puesto_numero);
-    if (!puestoNum || puestoNum < 1 || puestoNum > 300) {
-        return res.status(400).json({ 
-            msg: 'Número de puesto no válido. Debe estar entre 1 y 300' 
+    const puestoNum = isTeletrabajo ? 1 : parseInt(puesto_numero);
+    if (!isTeletrabajo && (!puestoNum || puestoNum < 1 || puestoNum > 300)) {
+        return res.status(400).json({
+            msg: 'Número de puesto no válido. Debe estar entre 1 y 300'
         });
     }
 
@@ -272,6 +295,20 @@ exports.createIncident = async (req, res) => {
                 departamento: workstationDepartment,
                 anydesk_address,
                 advisor_cedula
+            });
+        } else if (isTeletrabajo) {
+            // Generar código único con sufijo aleatorio corto (mismo patrón que Barranquilla)
+            const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const uniqueStationCode = `${stationCode}-${randomSuffix}`;
+
+            workstation = await Workstation.create({
+                station_code: uniqueStationCode,
+                location_details: `${departamento.toUpperCase()} - ${incidentSede.toUpperCase()} (Teletrabajo)`,
+                sede: incidentSede,
+                departamento: workstationDepartment,
+                anydesk_address,
+                anydesk_password,
+                modalidad: 'teletrabajo'
             });
         } else {
             // Para otras sedes, usar el método existente
@@ -299,49 +336,66 @@ exports.createIncident = async (req, res) => {
 // @route   POST /api/incidents/with-files
 // @access  Private (Coordinadores)
 exports.createIncidentWithFiles = async (req, res) => {
-    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula } = req.body;
+    const { sede, departamento, puesto_numero, failure_type, description, anydesk_address, advisor_cedula, anydesk_password, es_teletrabajo } = req.body;
 
     // Validaciones básicas
     if (!departamento || !failure_type || !description) {
-        return res.status(400).json({ 
-            msg: 'Todos los campos son requeridos: departamento, tipo de falla y descripción' 
+        return res.status(400).json({
+            msg: 'Todos los campos son requeridos: departamento, tipo de falla y descripción'
         });
     }
 
     // Validar sede
     const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
     const incidentSede = sede || req.user.sede || 'bogota';
-    
-    
+
+
     if (!validSedes.includes(incidentSede)) {
-        return res.status(400).json({ 
-            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
+        return res.status(400).json({
+            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio'
         });
     }
 
     // Para Barranquilla, puesto_numero puede ser opcional (será 1 por defecto)
     // Para administrativos, generar número único basado en departamento
     const isAdministrativo = req.user.role === 'administrativo';
-    const puestoNum = incidentSede === 'barranquilla' ? 1 : 
+    // Teletrabajo: solo disponible para Bogotá/Villavicencio (Barranquilla ya es remoto por defecto)
+    const isTeletrabajo = incidentSede !== 'barranquilla' && !isAdministrativo && (es_teletrabajo === 'true' || es_teletrabajo === true);
+    const puestoNum = incidentSede === 'barranquilla' ? 1 :
                      isAdministrativo ? 1 : // Usar 1 para administrativos, no 0
+                     isTeletrabajo ? 1 : // El puesto no aplica en teletrabajo
                      parseInt(puesto_numero);
 
-    if (incidentSede !== 'barranquilla' && !isAdministrativo && (!puesto_numero || isNaN(puestoNum) || puestoNum < 1 || puestoNum > 300)) {
-        return res.status(400).json({ 
-            msg: 'Número de puesto debe ser un número entre 1 y 300' 
+    if (incidentSede !== 'barranquilla' && !isAdministrativo && !isTeletrabajo && (!puesto_numero || isNaN(puestoNum) || puestoNum < 1 || puestoNum > 300)) {
+        return res.status(400).json({
+            msg: 'Número de puesto debe ser un número entre 1 y 300'
         });
     }
 
     // Validaciones especiales para Barranquilla
     if (incidentSede === 'barranquilla') {
         if (!anydesk_address) {
-            return res.status(400).json({ 
-                msg: 'La dirección AnyDesk es requerida para incidencias en Barranquilla' 
+            return res.status(400).json({
+                msg: 'La dirección AnyDesk es requerida para incidencias en Barranquilla'
             });
         }
         if (!advisor_cedula) {
-            return res.status(400).json({ 
-                msg: 'La cédula del asesor es requerida para incidencias en Barranquilla' 
+            return res.status(400).json({
+                msg: 'La cédula del asesor es requerida para incidencias en Barranquilla'
+            });
+        }
+    }
+
+    // Validaciones especiales para teletrabajo (Bogotá / Villavicencio)
+    if (isTeletrabajo) {
+        if (!anydesk_address) {
+            return res.status(400).json({
+                msg: 'El usuario de AnyDesk es requerido para incidencias en teletrabajo'
+            });
+        }
+        if (!anydesk_password) {
+            return res.status(400).json({
+                msg: 'La contraseña de AnyDesk es requerida para incidencias en teletrabajo'
             });
         }
     }
@@ -439,6 +493,20 @@ exports.createIncidentWithFiles = async (req, res) => {
                     departamento: workstationDepartment
                 });
             }
+        } else if (isTeletrabajo) {
+            // Generar código único con sufijo aleatorio corto (mismo patrón que Barranquilla)
+            const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const uniqueStationCode = `${stationCode}-${randomSuffix}`;
+
+            workstation = await Workstation.create({
+                station_code: uniqueStationCode,
+                location_details: `${departamento.toUpperCase()} - ${incidentSede.toUpperCase()} (Teletrabajo)`,
+                sede: incidentSede,
+                departamento: workstationDepartment,
+                anydesk_address,
+                anydesk_password,
+                modalidad: 'teletrabajo'
+            });
         } else {
             // Para otras sedes, usar el método existente
             workstation = await Workstation.findOrCreateByCode(stationCode, departamento, incidentSede);
