@@ -1479,8 +1479,9 @@ exports.correctIncident = async (req, res) => {
 // @access  Private (coordinadores, supervisores, administrativos, jefes)
 exports.getMyReports = async (req, res) => {
     try {
+        const db = require('../config/db');
         const userId = req.user.id;
-        
+
         const [incidents] = await db.query(`
             SELECT 
                 i.id,
