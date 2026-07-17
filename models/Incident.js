@@ -21,6 +21,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,
@@ -65,6 +66,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,
@@ -481,6 +483,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,
@@ -513,6 +516,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,
@@ -533,8 +537,6 @@ class Incident {
                 // Técnicos de Bogotá y Villavicencio pueden ver Barranquilla (trabajo remoto)
                 if (userSede === 'bogota') {
                     query += ' AND w.sede IN ("bogota", "barranquilla")';
-                } else if (userSede === 'villavicencio') {
-                    query += ' AND w.sede IN ("villavicencio", "barranquilla")';
                 } else {
                     // Otros técnicos solo ven su sede
                     query += ' AND w.sede = ?';
@@ -544,8 +546,6 @@ class Incident {
                 // Supervisores ven incidencias de su sede (mantener lógica original)
                 if (userSede === 'bogota') {
                     query += ' AND w.sede IN ("bogota", "barranquilla")';
-                } else if (userSede === 'villavicencio') {
-                    query += ' AND w.sede IN ("villavicencio", "barranquilla")';
                 } else {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
@@ -588,6 +588,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,
@@ -629,8 +630,6 @@ class Incident {
                 // Técnicos de Bogotá y Villavicencio pueden ver Barranquilla (trabajo remoto)
                 if (userSede === 'bogota') {
                     query += ' AND w.sede IN ("bogota", "barranquilla")';
-                } else if (userSede === 'villavicencio') {
-                    query += ' AND w.sede IN ("villavicencio", "barranquilla")';
                 } else {
                     // Otros técnicos solo ven su sede
                     query += ' AND w.sede = ?';
@@ -640,8 +639,6 @@ class Incident {
                 // Supervisores ven incidencias de su sede (mantener lógica original)
                 if (userSede === 'bogota') {
                     query += ' AND w.sede IN ("bogota", "barranquilla")';
-                } else if (userSede === 'villavicencio') {
-                    query += ' AND w.sede IN ("villavicencio", "barranquilla")';
                 } else {
                     query += ' AND w.sede = ?';
                     params.push(userSede);
@@ -777,6 +774,7 @@ class Incident {
                     w.location_details,
                     w.sede,
                     w.departamento,
+                    w.site,
                     w.anydesk_address,
                     w.advisor_cedula,
                     w.anydesk_password,

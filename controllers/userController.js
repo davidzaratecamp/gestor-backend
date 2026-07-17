@@ -102,25 +102,21 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ msg: 'No se pueden crear usuarios anónimos desde esta interfaz' });
     }
 
-    const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
+    const validSedes = ['bogota', 'barranquilla'];
     if (sede && !validSedes.includes(sede)) {
-        return res.status(400).json({ 
-            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
+        return res.status(400).json({
+            msg: 'Sede no válida. Debe ser: bogota o barranquilla'
         });
     }
 
     // Validar departamentos según la sede
-    const validDepartamentos = ['claro', 'obama'];
-    if (sede === 'bogota') {
-        validDepartamentos.push('majority'); // Majority solo en Bogotá
-    }
-    
+    const validDepartamentos = sede === 'bogota'
+        ? ['claro', 'obama', 'vital', 'tecnologia', 'rrhh', 'reclutamiento', 'formacion_claro', 'formacion_obama', 'recepcion', 'area_financiera']
+        : ['claro', 'obama']; // Barranquilla solo tiene claro/obama
+
     if (departamento && !validDepartamentos.includes(departamento)) {
-        const availableDepts = sede === 'bogota' 
-            ? 'claro, obama o majority' 
-            : 'claro u obama';
-        return res.status(400).json({ 
-            msg: `Departamento no válido para ${sede}. Debe ser: ${availableDepts}` 
+        return res.status(400).json({
+            msg: `Departamento no válido para ${sede}. Debe ser: ${validDepartamentos.join(', ')}`
         });
     }
 
@@ -187,25 +183,21 @@ exports.updateUser = async (req, res) => {
         });
     }
 
-    const validSedes = ['bogota', 'barranquilla', 'villavicencio'];
+    const validSedes = ['bogota', 'barranquilla'];
     if (sede && !validSedes.includes(sede)) {
-        return res.status(400).json({ 
-            msg: 'Sede no válida. Debe ser: bogota, barranquilla o villavicencio' 
+        return res.status(400).json({
+            msg: 'Sede no válida. Debe ser: bogota o barranquilla'
         });
     }
 
     // Validar departamentos según la sede
-    const validDepartamentos = ['claro', 'obama'];
-    if (sede === 'bogota') {
-        validDepartamentos.push('majority'); // Majority solo en Bogotá
-    }
-    
+    const validDepartamentos = sede === 'bogota'
+        ? ['claro', 'obama', 'vital', 'tecnologia', 'rrhh', 'reclutamiento', 'formacion_claro', 'formacion_obama', 'recepcion', 'area_financiera']
+        : ['claro', 'obama']; // Barranquilla solo tiene claro/obama
+
     if (departamento && !validDepartamentos.includes(departamento)) {
-        const availableDepts = sede === 'bogota' 
-            ? 'claro, obama o majority' 
-            : 'claro u obama';
-        return res.status(400).json({ 
-            msg: `Departamento no válido para ${sede}. Debe ser: ${availableDepts}` 
+        return res.status(400).json({
+            msg: `Departamento no válido para ${sede}. Debe ser: ${validDepartamentos.join(', ')}`
         });
     }
 

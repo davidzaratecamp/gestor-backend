@@ -62,23 +62,22 @@ class User {
         try {
             // Lógica de visibilidad:
             // - Técnicos de Bogotá: ven Bogotá y Barranquilla
-            // - Técnicos de Villavicencio: ven Villavicencio y Barranquilla
             // - Barranquilla no tiene técnicos propios
-            
+
             let query;
             let params;
-            
+
             if (incidentSede === 'barranquilla') {
-                // Para Barranquilla, pueden ayudar técnicos de Bogotá o Villavicencio
+                // Para Barranquilla, pueden ayudar técnicos de Bogotá
                 query = `
-                    SELECT id, username, full_name, sede, departamento 
-                    FROM users 
-                    WHERE role = "technician" AND sede IN ("bogota", "villavicencio")
+                    SELECT id, username, full_name, sede, departamento
+                    FROM users
+                    WHERE role = "technician" AND sede = "bogota"
                     ORDER BY full_name
                 `;
                 params = [];
             } else {
-                // Para Bogotá y Villavicencio, solo técnicos de la misma sede
+                // Para Bogotá, solo técnicos de la misma sede
                 query = `
                     SELECT id, username, full_name, sede, departamento 
                     FROM users 

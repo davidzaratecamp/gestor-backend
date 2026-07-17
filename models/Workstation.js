@@ -30,12 +30,18 @@ class Workstation {
 
     static async create(stationData) {
         try {
-            const { station_code, location_details, sede, departamento, anydesk_address, advisor_cedula, anydesk_password, modalidad } = stationData;
+            const { station_code, location_details, sede, departamento, site, anydesk_address, advisor_cedula, anydesk_password, modalidad } = stationData;
 
             // Construir query dinámicamente según los campos presentes
             let fields = ['station_code', 'location_details', 'sede', 'departamento'];
             let values = [station_code, location_details, sede, departamento];
             let placeholders = ['?', '?', '?', '?'];
+
+            if (site) {
+                fields.push('site');
+                values.push(site);
+                placeholders.push('?');
+            }
 
             if (anydesk_address) {
                 fields.push('anydesk_address');
@@ -168,23 +174,47 @@ class Workstation {
             // Lógica de visibilidad:
             // - Admin: ve todo
             // - Técnicos Bogotá: ven Bogotá y Barranquilla
-            // - Técnicos Villavicencio: ven Villavicencio y Barranquilla
             // - Supervisores: ven todo (por ahora)
-            
+
             let query = 'SELECT * FROM workstations';
             let params = [];
-            
+
             if (userRole === 'technician') {
                 if (userSede === 'bogota') {
                     query += ' WHERE sede IN ("bogota", "barranquilla")';
-                } else if (userSede === 'villavicencio') {
-                    query += ' WHERE sede IN ("villavicencio", "barranquilla")';
                 }
             }
             // Admin y supervisor ven todo
-            
+
             query += ' ORDER BY sede, departamento, station_code';
-            
+
+            const [rows] = await db.query(query, params);
+            return rows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Catálogo de puestos fijos de Bogotá para el selector en cascada (Site 1 / Site 2 / Área Financiera)
+    static async getCatalog(site, departamento) {
+        try {
+            let query = 'SELECT id, station_code, location_details, sede, site, departamento FROM workstations WHERE sede = "bogota"';
+            const params = [];
+
+            if (site) {
+                query += ' AND site = ?';
+                params.push(site);
+            } else {
+                query += ' AND site IS NULL';
+            }
+
+            if (departamento) {
+                query += ' AND departamento = ?';
+                params.push(departamento);
+            }
+
+            query += ' ORDER BY station_code';
+
             const [rows] = await db.query(query, params);
             return rows;
         } catch (error) {
