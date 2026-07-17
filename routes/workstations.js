@@ -5,6 +5,7 @@ const {
     getWorkstationById,
     getWorkstationStats,
     getWorkstationHistory,
+    getStationCatalog,
     createWorkstation,
     updateWorkstation,
     deleteWorkstation
@@ -16,6 +17,7 @@ router.use(verifyToken);
 
 // Rutas accesibles para todos los usuarios autenticados
 router.get('/', getAllWorkstations);
+router.get('/catalog', getStationCatalog);                    // Debe ir antes de /:id
 router.get('/stats', isAdmin, getWorkstationStats);           // Debe ir antes de /:id
 router.get('/:id/history', isAdmin, getWorkstationHistory);
 router.get('/:id', getWorkstationById);

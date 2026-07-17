@@ -157,6 +157,20 @@ exports.getAllWorkstations = async (req, res) => {
     }
 };
 
+// @desc    Obtener catálogo de puestos de Bogotá para el selector en cascada (Site 1 / Site 2 / Área Financiera)
+// @route   GET /api/workstations/catalog?site=site1&departamento=claro
+// @access  Private
+exports.getStationCatalog = async (req, res) => {
+    try {
+        const { site, departamento } = req.query;
+        const workstations = await Workstation.getCatalog(site || null, departamento || null);
+        res.json(workstations);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Error del servidor');
+    }
+};
+
 // @desc    Obtener una estación de trabajo por ID
 // @route   GET /api/workstations/:id
 // @access  Private

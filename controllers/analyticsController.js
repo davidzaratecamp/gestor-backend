@@ -38,7 +38,7 @@ exports.getIncidentsBySede = async (req, res) => {
         // Primero obtenemos todas las sedes disponibles
         const [allSedes] = await db.execute(`
             SELECT DISTINCT sede FROM workstations 
-            WHERE sede IN ('bogota', 'barranquilla', 'villavicencio')
+            WHERE sede IN ('bogota', 'barranquilla')
             ORDER BY sede
         `);
         
@@ -53,7 +53,7 @@ exports.getIncidentsBySede = async (req, res) => {
                 COUNT(CASE WHEN i.status = 'aprobado' THEN 1 END) as aprobado
             FROM workstations w
             LEFT JOIN incidents i ON w.id = i.workstation_id
-            WHERE w.sede IN ('bogota', 'barranquilla', 'villavicencio')
+            WHERE w.sede IN ('bogota', 'barranquilla')
             GROUP BY w.sede
             ORDER BY total DESC
         `);
@@ -65,7 +65,7 @@ exports.getIncidentsBySede = async (req, res) => {
         });
         
         // Asegurar que todas las sedes aparezcan, incluso con 0 incidencias
-        const sedes = ['bogota', 'barranquilla', 'villavicencio'];
+        const sedes = ['bogota', 'barranquilla'];
         const results = sedes.map(sede => {
             return statsMap[sede] || {
                 sede: sede,
