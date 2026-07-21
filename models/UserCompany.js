@@ -475,6 +475,7 @@ class UserCompany {
         const [tiposCuenta] = await db.query('SELECT idtipo_cuenta AS id, nombre FROM tipo_cuenta ORDER BY idtipo_cuenta');
         const [tiposDireccion] = await db.query('SELECT idtipo_direccion AS id, nombre FROM tipo_direccion ORDER BY idtipo_direccion');
         const [parentescos] = await db.query('SELECT idparentesco AS id, nombre FROM parentesco ORDER BY idparentesco');
+        const [tiposNovedad] = await db.query('SELECT idtipo_novedad AS id, categoria, nombre FROM tipo_novedad ORDER BY categoria, nombre');
         const [empleados] = await db.query(`
             SELECT id, CONCAT_WS(' ', primer_nombre, segundo_nombre, primer_apellido, segundo_apellido) AS nombre_completo
             FROM users_company ORDER BY primer_apellido, primer_nombre
@@ -503,6 +504,7 @@ class UserCompany {
             tipos_cuenta: tiposCuenta,
             tipos_direccion: tiposDireccion,
             parentescos,
+            tipos_novedad: tiposNovedad,
             empleados
         };
     }
