@@ -1,4 +1,7 @@
 const UserCompany = require('../models/UserCompany');
+const NovedadRrhh = require('../models/NovedadRrhh');
+const Traspaso = require('../models/Traspaso');
+const Vacaciones = require('../models/Vacaciones');
 
 const CAMPOS_PERSONALES = [
     'numero_identificacion', 'tipo_identificacion_id', 'fecha_expedicion', 'ciudad_expedicion_id',
@@ -48,6 +51,12 @@ function validarObligatorios(data) {
 
     if (!data.salario.salario || Number(data.salario.salario) <= 0) {
         return 'El salario es obligatorio y debe ser mayor a cero';
+    }
+
+    const tarifaArl = data.seguridad_social?.tarifa_arl;
+    if (tarifaArl !== undefined && tarifaArl !== null && tarifaArl !== '' &&
+        (isNaN(Number(tarifaArl)) || Number(tarifaArl) < 0 || Number(tarifaArl) > 100)) {
+        return 'La tarifa ARL debe ser un porcentaje entre 0 y 100';
     }
 
     return null;
@@ -216,6 +225,216 @@ const userCompanyController = {
             res.json({ success: true, message: 'Activo desasignado exitosamente' });
         } catch (error) {
             console.error('Error al desasignar activo:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    // ==================== NOVEDADES RRHH ====================
+
+    async getNovedades(req, res) {
+        try {
+            const { contrato_id, tipo_novedad_id, desde, hasta } = req.query;
+            const novedades = await NovedadRrhh.getAll({ contrato_id, tipo_novedad_id, desde, hasta });
+            res.json({ novedades });
+        } catch (error) {
+            console.error('Error al obtener novedades:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async getNovedadById(req, res) {
+        try {
+            const novedad = await NovedadRrhh.getById(req.params.novedadId);
+            if (!novedad) {
+                return res.status(404).json({ success: false, message: 'Novedad no encontrada' });
+            }
+            res.json({ novedad });
+        } catch (error) {
+            console.error('Error al obtener novedad:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async createNovedad(req, res) {
+        try {
+            const { contrato_id, tipo_novedad_id, fecha_inicial } = req.body;
+            if (!contrato_id || !tipo_novedad_id || !fecha_inicial) {
+                return res.status(400).json({ success: false, message: 'contrato_id, tipo_novedad_id y fecha_inicial son obligatorios' });
+            }
+            const novedad = await NovedadRrhh.create(req.body);
+            res.status(201).json({ success: true, message: 'Novedad creada exitosamente', novedad });
+        } catch (error) {
+            console.error('Error al crear novedad:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async updateNovedad(req, res) {
+        try {
+            const { contrato_id, tipo_novedad_id, fecha_inicial } = req.body;
+            if (!contrato_id || !tipo_novedad_id || !fecha_inicial) {
+                return res.status(400).json({ success: false, message: 'contrato_id, tipo_novedad_id y fecha_inicial son obligatorios' });
+            }
+            const ok = await NovedadRrhh.update(req.params.novedadId, req.body);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Novedad no encontrada' });
+            }
+            res.json({ success: true, message: 'Novedad actualizada exitosamente' });
+        } catch (error) {
+            console.error('Error al actualizar novedad:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async deleteNovedad(req, res) {
+        try {
+            const ok = await NovedadRrhh.delete(req.params.novedadId);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Novedad no encontrada' });
+            }
+            res.json({ success: true, message: 'Novedad eliminada exitosamente' });
+        } catch (error) {
+            console.error('Error al eliminar novedad:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    // ==================== TRASPASOS ====================
+
+    async getTraspasos(req, res) {
+        try {
+            const { contrato_id, desde, hasta } = req.query;
+            const traspasos = await Traspaso.getAll({ contrato_id, desde, hasta });
+            res.json({ traspasos });
+        } catch (error) {
+            console.error('Error al obtener traspasos:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async getTraspasoById(req, res) {
+        try {
+            const traspaso = await Traspaso.getById(req.params.traspasoId);
+            if (!traspaso) {
+                return res.status(404).json({ success: false, message: 'Traspaso no encontrado' });
+            }
+            res.json({ traspaso });
+        } catch (error) {
+            console.error('Error al obtener traspaso:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async createTraspaso(req, res) {
+        try {
+            const { contrato_id, fecha_inicio } = req.body;
+            if (!contrato_id || !fecha_inicio) {
+                return res.status(400).json({ success: false, message: 'contrato_id y fecha_inicio son obligatorios' });
+            }
+            const traspaso = await Traspaso.create(req.body);
+            res.status(201).json({ success: true, message: 'Traspaso creado exitosamente', traspaso });
+        } catch (error) {
+            console.error('Error al crear traspaso:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async updateTraspaso(req, res) {
+        try {
+            const { contrato_id, fecha_inicio } = req.body;
+            if (!contrato_id || !fecha_inicio) {
+                return res.status(400).json({ success: false, message: 'contrato_id y fecha_inicio son obligatorios' });
+            }
+            const ok = await Traspaso.update(req.params.traspasoId, req.body);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Traspaso no encontrado' });
+            }
+            res.json({ success: true, message: 'Traspaso actualizado exitosamente' });
+        } catch (error) {
+            console.error('Error al actualizar traspaso:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async deleteTraspaso(req, res) {
+        try {
+            const ok = await Traspaso.delete(req.params.traspasoId);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Traspaso no encontrado' });
+            }
+            res.json({ success: true, message: 'Traspaso eliminado exitosamente' });
+        } catch (error) {
+            console.error('Error al eliminar traspaso:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    // ==================== PASIVO VACACIONAL ====================
+
+    async getVacaciones(req, res) {
+        try {
+            const { contrato_id } = req.query;
+            const vacaciones = await Vacaciones.getAll({ contrato_id });
+            res.json({ vacaciones });
+        } catch (error) {
+            console.error('Error al obtener vacaciones:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async getVacacionesById(req, res) {
+        try {
+            const vacaciones = await Vacaciones.getById(req.params.vacacionesId);
+            if (!vacaciones) {
+                return res.status(404).json({ success: false, message: 'Registro de vacaciones no encontrado' });
+            }
+            res.json({ vacaciones });
+        } catch (error) {
+            console.error('Error al obtener vacaciones:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async createVacaciones(req, res) {
+        try {
+            const { contrato_id, fecha_corte } = req.body;
+            if (!contrato_id || !fecha_corte) {
+                return res.status(400).json({ success: false, message: 'contrato_id y fecha_corte son obligatorios' });
+            }
+            const vacaciones = await Vacaciones.create(req.body);
+            res.status(201).json({ success: true, message: 'Registro de vacaciones creado exitosamente', vacaciones });
+        } catch (error) {
+            console.error('Error al crear vacaciones:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async updateVacaciones(req, res) {
+        try {
+            const { contrato_id, fecha_corte } = req.body;
+            if (!contrato_id || !fecha_corte) {
+                return res.status(400).json({ success: false, message: 'contrato_id y fecha_corte son obligatorios' });
+            }
+            const ok = await Vacaciones.update(req.params.vacacionesId, req.body);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Registro de vacaciones no encontrado' });
+            }
+            res.json({ success: true, message: 'Registro de vacaciones actualizado exitosamente' });
+        } catch (error) {
+            console.error('Error al actualizar vacaciones:', error);
+            res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+        }
+    },
+
+    async deleteVacaciones(req, res) {
+        try {
+            const ok = await Vacaciones.delete(req.params.vacacionesId);
+            if (!ok) {
+                return res.status(404).json({ success: false, message: 'Registro de vacaciones no encontrado' });
+            }
+            res.json({ success: true, message: 'Registro de vacaciones eliminado exitosamente' });
+        } catch (error) {
+            console.error('Error al eliminar vacaciones:', error);
             res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
         }
     }

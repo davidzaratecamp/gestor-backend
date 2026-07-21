@@ -90,10 +90,10 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ msg: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario', 'disenador'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario', 'disenador', 'recursosHumanos'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos, tecnicoInventario o disenador'
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos, tecnicoInventario, disenador o recursosHumanos'
         });
     }
 
@@ -139,8 +139,8 @@ exports.createUser = async (req, res) => {
             role
         };
         
-        // Para gestorActivos, tecnicoInventario y disenador, no asignar sede ni departamento
-        if (role === 'gestorActivos' || role === 'tecnicoInventario' || role === 'disenador') {
+        // Para gestorActivos, tecnicoInventario, disenador y recursosHumanos, no asignar sede ni departamento
+        if (role === 'gestorActivos' || role === 'tecnicoInventario' || role === 'disenador' || role === 'recursosHumanos') {
             userData.sede = null;
             userData.departamento = null;
         } else {
@@ -180,10 +180,10 @@ exports.updateUser = async (req, res) => {
         });
     }
 
-    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario', 'disenador'];
+    const validRoles = ['admin', 'coordinador', 'supervisor', 'technician', 'jefe_operaciones', 'administrativo', 'gestorActivos', 'tecnicoInventario', 'disenador', 'recursosHumanos'];
     if (!validRoles.includes(role)) {
         return res.status(400).json({
-            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos, tecnicoInventario o disenador'
+            msg: 'Rol no válido. Debe ser: admin, coordinador, supervisor, technician, jefe_operaciones, administrativo, gestorActivos, tecnicoInventario, disenador o recursosHumanos'
         });
     }
 
@@ -236,8 +236,8 @@ exports.updateUser = async (req, res) => {
             role
         };
         
-        // Para gestorActivos, tecnicoInventario y disenador, no asignar sede ni departamento
-        if (role === 'gestorActivos' || role === 'tecnicoInventario' || role === 'disenador') {
+        // Para gestorActivos, tecnicoInventario, disenador y recursosHumanos, no asignar sede ni departamento
+        if (role === 'gestorActivos' || role === 'tecnicoInventario' || role === 'disenador' || role === 'recursosHumanos') {
             updateData.sede = null;
             updateData.departamento = null;
         } else {
