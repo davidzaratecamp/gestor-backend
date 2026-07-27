@@ -185,7 +185,9 @@ async function resolveWorkstation(req) {
     }
 
     const isDirectivoFinanciero = req.user.role === 'directivoFinanciero';
-    const isTeletrabajo = incidentSede === 'bogota' && !isDirectivoFinanciero && (es_teletrabajo === 'true' || es_teletrabajo === true);
+    // Cualquier rol autorizado a crear incidencias puede elegir Área Financiera, no solo el rol directivoFinanciero
+    const isAreaFinanciera = isDirectivoFinanciero || departamento === 'area_financiera';
+    const isTeletrabajo = incidentSede === 'bogota' && !isAreaFinanciera && (es_teletrabajo === 'true' || es_teletrabajo === true);
 
     if (incidentSede === 'barranquilla') {
         if (!anydesk_address) throw { status: 400, msg: 'La dirección AnyDesk es requerida para incidencias en Barranquilla' };
@@ -224,7 +226,7 @@ async function resolveWorkstation(req) {
         }
     }
 
-    if (isDirectivoFinanciero) {
+    if (isAreaFinanciera) {
         if (!station_code) {
             throw { status: 400, msg: 'Debes elegir un puesto de Área Financiera' };
         }
